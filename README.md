@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is repository of modified version of classic TinyBasic for 8080 based microcomputers. 
+This is repository stores modified version of TinyBasic interpreter for 8080 based microcomputers. 
 It has been modifed to run on my homemade system, based upon polish clone of mentioned CPU - 
 CEMI MCY7880. Original code has been supplemented with I/O routines supporting built-in 
 peripherals.
