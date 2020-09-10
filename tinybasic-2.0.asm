@@ -250,7 +250,7 @@ CFWSECT:
         MVI A, 30H                      ;WRITE SECTOR COMMAND
         OUT CFREG7
         LXI D, BLKDAT
-        CALL CFREAD
+        CALL CFWRITE
         CALL CFCHERR
         RET
         
