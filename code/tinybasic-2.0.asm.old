@@ -24,34 +24,40 @@
 ; SECTION.  THEY CAN BE REACHED ONLY BY 3-BYTE CALLS.
 ;
 
-PORT_8212   		EQU		0E0H 
+PORT_8212   		EQU		00H 
+PA_8255    			EQU     20H
+PB_8255				EQU		21H
+PC_8255				EQU		22H
+CONF_8255			EQU		23H
 UART_8251_DATA    	EQU     40H
 UART_8251_CTRL		EQU		41H
-PIC_8259_LOW		EQU		58H
-PIC_8259_HIGH		EQU		59H
-COUNT_REG_0_8253 	EQU 	48H
-COUNT_REG_1_8253 	EQU 	49H
-COUNT_REG_2_8253 	EQU 	4AH
-CONTR_W_8253 		EQU 	4BH
-KBD_DATA            EQU     50H
-KBD_STATUS          EQU     51H
-KBD_CMD             EQU     51H
-RTC_1_SEC_REG		EQU		00H
-RTC_10_SEC_REG		EQU		01H
-RTC_1_MIN_REG		EQU		02H
-RTC_10_MIN_REG		EQU		03H
-RTC_1_HOUR_REG		EQU		04H
-RTC_10_HOUR_REG		EQU		05H
-RTC_1_DAY_REG		EQU		06H
-RTC_10_DAY_REG		EQU		07H
-RTC_1_MON_REG		EQU		08H
-RTC_10_MON_REG		EQU		09H
-RTC_1_YEAR_REG		EQU		0AH
-RTC_10_YEAR_REG		EQU		0BH
-RTC_WEEK_REG		EQU		0CH
-RTC_CTRLD_REG		EQU		0DH
-RTC_CTRLE_REG		EQU		0EH
-RTC_CTRLF_REG		EQU		0FH
+PIC_8259_LOW		EQU		0B0H
+PIC_8259_HIGH		EQU		0B1H
+COUNT_REG_0_8253 	EQU 	60H
+COUNT_REG_1_8253 	EQU 	61H
+COUNT_REG_2_8253 	EQU 	62H
+CONTR_W_8253 		EQU 	63H
+VDP_MODE            EQU     0A9H
+VDP_DATA            EQU     0A8H
+KBD_DATA            EQU     0A0H
+KBD_STATUS          EQU     0A1H
+KBD_CMD             EQU     0A1H
+RTC_1_SEC_REG		EQU		80H
+RTC_10_SEC_REG		EQU		81H
+RTC_1_MIN_REG		EQU		82H
+RTC_10_MIN_REG		EQU		83H
+RTC_1_HOUR_REG		EQU		84H
+RTC_10_HOUR_REG		EQU		85H
+RTC_1_DAY_REG		EQU		86H
+RTC_10_DAY_REG		EQU		87H
+RTC_1_MON_REG		EQU		88H
+RTC_10_MON_REG		EQU		89H
+RTC_1_YEAR_REG		EQU		8AH
+RTC_10_YEAR_REG		EQU		8BH
+RTC_WEEK_REG		EQU		8CH
+RTC_CTRLD_REG		EQU		8DH
+RTC_CTRLE_REG		EQU		8EH
+RTC_CTRLF_REG		EQU		8FH
 
 ;8253 config
 SEL_COUNTER_0 		EQU 	00H
@@ -246,6 +252,171 @@ CFWSECT:
         LXI D, BLKDAT
         CALL CFWRITE
         CALL CFCHERR
+        RET
+        
+VDPINIT:
+        MVI A, 00H
+        STA CURX                        ;Set cursor x position to 0
+        STA CURY                        ;Set cursor y position to 0
+        MVI A, 00H                      ;REG0 (TEXT MODE, NO EXTERNAL VIDEO)
+        OUT VDP_MODE
+        MVI A, 80H                      ;SELECT REG0
+        OUT VDP_MODE
+
+        MVI A, 0D0H                     ;REG1 (16K, ENABLE DISP, DISABLE INT)
+        OUT VDP_MODE
+        MVI A, 81H                      ;SELECT REG1
+        OUT VDP_MODE
+
+        MVI A, 02H                      ;REG2 (ADDRESS OF NAME TABLE IN VRAM = 0x0800)
+        OUT VDP_MODE
+        MVI A, 82H                      ;SELECT REG2
+        OUT VDP_MODE
+ 
+        MVI A, 00H                      ;REG4 (ADDRESS OF PATTERN TABLE IN VRAM = 0x0000)
+        OUT VDP_MODE
+        MVI A, 84H                      ;SELECT REG4
+        OUT VDP_MODE
+        
+        ; INITIALIZE VRAM
+        LXI B, CHARS
+        LXI D, 0000H + (32*8)
+        LXI H, CHARS_END-CHARS
+        CALL VDPWVRAM
+        
+;        MVI A, 20H                      ;REG5 (ADDRESS OF SPRITE ATTRIBUTE TABLE IN VRAM = 0x1000)
+;        OUT VDP_MODE
+;        MVI A, 85H                      ;SELECT REG5
+;        OUT VDP_MODE
+;        MVI A, 00H                      ;REG6 (ADDRESS OF SPRITE PATTERN TABLE IN VRAM = 0x0000)
+;        OUT VDP_MODE
+;        MVI A, 86H                      ;SELECT REG6
+;        OUT VDP_MODE
+
+        MVI A, 0F1H                     ;REG7 (WHITE TEXT ON BLACK BACKGROUND)
+        OUT VDP_MODE
+        MVI A, 87H                      ;SELECT REG7
+        OUT VDP_MODE
+    
+        RET
+;Prints ASCII character from A on the screen.
+VDP_PUTC:
+        CPI 0DH                         ;Is it a return character?
+        JNZ VDP_PN                      ;If not, go to the next stage
+        MVI A, 00H                      ;If yes, CURX = 0
+        STA CURX
+        RET
+VDP_PN:
+        CPI 0AH                         ;Is it a newline character
+        JNZ VDP_CALC                    ;If not, go to the next stage
+        LDA CURY                        ;Increment CURY
+        INR A                           ;Increment A
+        CPI 24                          ;Compare A with max Y value
+        JNC VDP_STA_CURY                ;If it is below 24, just save
+        CALL VDP_1UP                    ;Scroll scrren content one line up
+        MVI A, 23                       ;CURY is still the last line
+VDP_STA_CURY:
+        STA CURY                        ;Save current CURY value
+        RET                             ;Return
+VDP_CALC:
+        ;Calculate position in VRAM basing on CURX and CURY
+        MOV B, A                        ;Sotre current character in B
+        LDA CURY                        ;Load current CURY value to A
+        ;Put character
+        
+        LDA CURX                        ;Load CURX to A
+        INR A                           ;Increment A
+        CPI 40                          
+VPD_CALC_LOOP:
+
+        RET
+        
+VDP_1UP:
+        RET
+
+ZEROVRAM:
+		MVI A, 00H
+		OUT VDP_MODE
+		NOP
+		NOP
+		MVI A, 40H
+		OUT VDP_MODE
+		NOP
+		NOP
+		LXI B, 4000H
+ZEROVRAML:
+		MVI A, 00H
+		OUT VDP_DATA
+		NOP
+		NOP
+		NOP
+		NOP
+		NOP
+		NOP
+		NOP
+		NOP
+		DCX B
+		MOV A, B
+		ORA C
+		JNZ ZEROVRAML
+		RET
+		
+
+;RAM ADDRESS IN BC, VRAM ADDRES IN DE, DATA LENGTH IN HL        
+VDPWVRAM:
+        MOV A, E
+        OUT VDP_MODE
+        NOP
+        NOP
+        MOV A, D
+        ORI 40H
+        OUT VDP_MODE
+        NOP
+        NOP
+VDPWVRAML:
+        LDAX B
+        OUT VDP_DATA
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        INX B
+        DCX H
+        MOV A, H
+        ORA L          
+        JNZ VDPWVRAML
+        RET
+        
+;RAM ADDRES IN BC, VRAM ADDRES IN DE, DATA LENGTH IN HL
+VDPRVRAM:
+        MOV A, E
+        OUT VDP_MODE
+        NOP
+        NOP
+        MOV A, D
+        OUT VDP_MODE
+        NOP
+        NOP
+VDPRVRAML:
+		IN VDP_DATA
+		NOP
+		NOP
+		NOP
+		NOP
+		NOP
+		NOP
+		NOP
+		NOP
+        STAX B
+        INX B
+        DCX H
+        MOV A, H
+        ORA L        
+        JNZ VDPRVRAML
         RET
 
 ;KBDINIT - initializes 8042/8242 PS/2 keyboard controller
@@ -2004,12 +2175,52 @@ INIT:   STA  OCSW
         LXI  D, INPIO_ROM               ;SOURCE
         LXI  H, INPIO                   ;DESTINATION
         CALL MEMCOPY
-		
-        ;CALL CFINIT
-        ;CALL CFRSECT
-        ;CALL CFINFO
         
-
+        CALL ZEROVRAM
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+		
+        CALL CFINIT
+        ;CALL CFRSECT
+        CALL VDPINIT
+;        CALL CFINFO
+        
+;		COPY TEXT        
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+;	 	Initialize VRAM
+        LXI B, CRTMSG
+        LXI D, 0800H
+        LXI H, 179
+        CALL VDPWVRAM
 ;       Initialize keyboard
         LXI D, KBDMSG                       ;Print KBD Init message
         CALL PRTSTG
@@ -2520,34 +2731,32 @@ VDP_ISR:
 ;Interrupt vectors
 IR0_VECT:
 		ORG  0FFE0H
-		JMP KBD_ISR
+        EI	
+        RET
+        NOP
         NOP
 IR1_VECT:
-		JMP UART_TX_ISR
+        EI
+		RET
+        NOP
         NOP
 IR2_VECT:
-		JMP UART_RX_ISR
-        NOP
-IR3_VECT:
-		JMP RTC_ISR
-        NOP
-IR4_VECT:
 		JMP TIMER_ISR
         NOP
-IR5_VECT:
-        EI	
-        RET
+IR3_VECT:
+		JMP UART_TX_ISR
         NOP
+IR4_VECT:
+		JMP UART_RX_ISR
+        NOP
+IR5_VECT:
+		JMP KBD_ISR
         NOP
 IR6_VECT:
-        EI	
-        RET
-        NOP
+		JMP RTC_ISR
         NOP
 IR7_VECT
-        EI	
-        RET
-        NOP
+		JMP VDP_ISR
         NOP
 ;
 LSTROM:                                 ;ALL ABOVE CAN BE ROM
