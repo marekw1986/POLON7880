@@ -87,7 +87,7 @@ CFREG7              EQU     CFBASE+7	;READ: STATUS, WRITE: COMMAND
         ORG  0C000H
         JMP  SET_PC
 SET_PC:
-		MVI  A, 80H 
+		MVI  A, 04H 
         OUT  PORT_8212
 START:  LXI  H,STACK                   ;*** COLD START ***
 		SPHL
