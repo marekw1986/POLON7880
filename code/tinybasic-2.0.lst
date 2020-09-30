@@ -1,0 +1,2784 @@
+                        ;*************************************************************
+                        ; 
+                        ;                 TINY BASIC FOR INTEL 8080
+                        ;                       VERSION 2.0
+                        ;                     BY LI-CHEN WANG
+                        ;                  MODIFIED AND TRANSLATED
+                        ;                    TO INTEL MNEMONICS
+                        ;                     BY ROGER RAUSKOLB
+                        ;                      10 OCTOBER,1976
+                        ;                        @COPYLEFT
+                        ;                   ALL WRONGS RESERVED
+                        ; 
+                        ;*************************************************************
+                        ; 
+                        ; *** ZERO PAGE SUBROUTINES ***
+                        ; 
+                        ; THE 8080 INSTRUCTION SET LETS YOU HAVE 8 ROUTINES IN LOW
+                        ; MEMORY THAT MAY BE CALLED BY RST N, N BEING 0 THROUGH 7.
+                        ; THIS IS A ONE BYTE INSTRUCTION AND HAS THE SAME POWER AS
+                        ; THE THREE BYTE INSTRUCTION CALL LLHH.  TINY BASIC WILL
+                        ; USE RST 0 AS START AND RST 1 THROUGH RST 7 FOR
+                        ; THE SEVEN MOST FREQUENTLY USED SUBROUTINES.
+                        ; TWO OTHER SUBROUTINES (CRLF AND TSTNUM) ARE ALSO IN THIS
+                        ; SECTION.  THEY CAN BE REACHED ONLY BY 3-BYTE CALLS.
+                        ;
+                        
+   00e0                 PORT_8212   		EQU		0E0H 
+   0040                 UART_8251_DATA    	EQU     40H
+   0041                 UART_8251_CTRL		EQU		41H
+   0058                 PIC_8259_LOW		EQU		58H
+   0059                 PIC_8259_HIGH		EQU		59H
+   0048                 COUNT_REG_0_8253 	EQU 	48H
+   0049                 COUNT_REG_1_8253 	EQU 	49H
+   004a                 COUNT_REG_2_8253 	EQU 	4AH
+   004b                 CONTR_W_8253 		EQU 	4BH
+   0050                 KBD_DATA            EQU     50H
+   0051                 KBD_STATUS          EQU     51H
+   0051                 KBD_CMD             EQU     51H
+   0000                 RTC_1_SEC_REG		EQU		00H
+   0001                 RTC_10_SEC_REG		EQU		01H
+   0002                 RTC_1_MIN_REG		EQU		02H
+   0003                 RTC_10_MIN_REG		EQU		03H
+   0004                 RTC_1_HOUR_REG		EQU		04H
+   0005                 RTC_10_HOUR_REG		EQU		05H
+   0006                 RTC_1_DAY_REG		EQU		06H
+   0007                 RTC_10_DAY_REG		EQU		07H
+   0008                 RTC_1_MON_REG		EQU		08H
+   0009                 RTC_10_MON_REG		EQU		09H
+   000a                 RTC_1_YEAR_REG		EQU		0AH
+   000b                 RTC_10_YEAR_REG		EQU		0BH
+   000c                 RTC_WEEK_REG		EQU		0CH
+   000d                 RTC_CTRLD_REG		EQU		0DH
+   000e                 RTC_CTRLE_REG		EQU		0EH
+   000f                 RTC_CTRLF_REG		EQU		0FH
+                        
+                        ;8253 config
+   0000                 SEL_COUNTER_0 		EQU 	00H
+   0040                 SEL_COUNTER_1 		EQU 	40H
+   0080                 SEL_COUNTER_2 		EQU 	80H
+   0000                 COUNTER_LATCHING 	EQU 	00H 
+   0020                 RL_MSB_ONLY      	EQU 	20H
+   0010                 RL_LSB_ONLY      	EQU 	10H
+   0030                 RL_LSB_THEN_MSB  	EQU 	30H
+   0000                 MODE_0 				EQU 	00H
+   0002                 MODE_1 				EQU 	02H
+   0004                 MODE_2 				EQU 	04H
+   0006                 MODE_3 				EQU 	06H
+   0008                 MODE_4 				EQU 	08H
+   000a                 MODE_5 				EQU 	0AH
+   0001                 BCD 				EQU 	01H
+   0000                 BIN 				EQU 	00H
+                        
+   0001                 TxRDY_MASK   		EQU 	01H
+   0002                 RxRDY_MASK			EQU		02H	
+                        
+                        ; CF REGS
+   0090                 CFBASE              EQU     090H
+   0090                 CFREG0              EQU     CFBASE+0	;DATA PORT
+   0091                 CFREG1              EQU     CFBASE+1	;READ: ERROR CODE, WRITE: FEATURE
+   0092                 CFREG2              EQU     CFBASE+2	;NUMBER OF SECTORS TO TRANSFER
+   0093                 CFREG3              EQU     CFBASE+3	;SECTOR ADDRESS LBA 0 [0:7]
+   0094                 CFREG4              EQU     CFBASE+4	;SECTOR ADDRESS LBA 1 [8:15]
+   0095                 CFREG5              EQU     CFBASE+5	;SECTOR ADDRESS LBA 2 [16:23]
+   0096                 CFREG6              EQU     CFBASE+6	;SECTOR ADDRESS LBA 3 [24:27 (LSB)]
+   0097                 CFREG7              EQU     CFBASE+7	;READ: STATUS, WRITE: COMMAND
+                        
+   c000                         ORG  0C000H
+   c000   c3 03 c0              JMP  SET_PC
+   c003                 SET_PC:
+   c003   3e 04         		MVI  A, 04H 
+   c005   d3 e0                 OUT  PORT_8212
+   c007   21 ff 7f      START:  LXI  H,STACK                   ;*** COLD START ***
+   c00a   f9            		SPHL
+   c00b   3e ff                 MVI  A,0FFH
+   c00d   c3 9c c9              JMP  INIT
+                        ;
+                        
+   c010                 CFINIT:
+   c010   3e 00         		MVI A, 00H
+   c012   32 78 1f      		STA	CFLBA3
+   c015   3e 00         		MVI A, 00H
+   c017   32 79 1f      		STA	CFLBA2
+   c01a   3e 00         		MVI A, 00H
+   c01c   32 7a 1f      		STA	CFLBA1
+   c01f   3e 00         		MVI A, 00H
+   c021   32 7b 1f      		STA	CFLBA0
+   c024   3e 04                 MVI A, 04H
+   c026   d3 97                 OUT CFREG7
+   c028   cd 3e c0              CALL CFWAIT
+   c02b   3e e0                 MVI A, 0E0H		                ;LBA3=0, MASTER, MODE=LBA
+   c02d   d3 96                 OUT	CFREG6
+   c02f   3e 01                 MVI A, 01H		                ;8-BIT TRANSFERS
+   c031   d3 91                 OUT CFREG1
+   c033   3e ef                 MVI A, 0EFH		                ;SET FEATURE COMMAND
+   c035   d3 97                 OUT CFREG7
+   c037   cd 3e c0              CALL CFWAIT
+   c03a   cd 46 c0              CALL CFCHERR
+   c03d   c9                    RET
+                        
+   c03e                 CFWAIT:
+   c03e   db 97                 IN CFREG7
+   c040   e6 80                 ANI 80H                         ;MASK OUT BUSY FLAG
+   c042   c2 3e c0              JNZ CFWAIT
+   c045   c9                    RET	
+                        
+   c046                 CFCHERR:	
+   c046   db 97                 IN CFREG7
+   c048   e6 01                 ANI	01H		                    ;MASK OUT ERROR BIT
+   c04a   ca 5d c0              JZ	CFNERR
+   c04d   11 66 ca              LXI D, CFMSG1
+   c050   cd a6 c8              CALL PRTSTG
+   c053   db 91                 IN	CFREG1
+   c055   6f                    MOV L, A
+   c056   26 00                 MVI H, 0H
+   c058   0e 04                 MVI C, 4H
+   c05a   cd e4 c8              CALL PRTNUM
+   c05d                 CFNERR:	
+   c05d   c9                    RET    
+                                    
+   c05e                 CFREAD:
+   c05e   cd 3e c0              CALL CFWAIT
+   c061   db 97                 IN CFREG7
+   c063   e6 08                 ANI	08H	                    ;FILTER OUT DRQ
+   c065   ca 6f c0              JZ CFREADE
+   c068   db 90                 IN CFREG0		            ;READ DATA BYTE
+   c06a   12                    STAX D
+   c06b   13                    INX D
+   c06c   c3 5e c0              JMP	CFREAD
+   c06f                 CFREADE:
+   c06f   c9                    RET
+                                
+   c070                 CFWRITE:
+   c070   cd 3e c0              CALL CFWAIT
+   c073   db 97                 IN CFREG7
+   c075   e6 08                 ANI 08H                     ;FILTER OUT DRQ
+   c077   ca 81 c0              JZ CFWRITEE
+   c07a   1a                    LDAX D
+   c07b   d3 90                 OUT CFREG0
+   c07d   13                    INX D
+   c07e   c3 70 c0              JMP CFWRITE
+   c081                 CFWRITEE:
+   c081   c9                    RET
+                                
+   c082                 CFSLBA:
+   c082   3a 7b 1f              LDA CFLBA0		                ;LBA 0
+   c085   d3 93                 OUT CFREG3
+   c087   3a 7a 1f              LDA CFLBA1		                ;LBA 1
+   c08a   d3 94                 OUT CFREG4
+   c08c   3a 79 1f              LDA CFLBA2		                ;LBA 2
+   c08f   d3 95                 OUT CFREG5	
+   c091   3a 78 1f              LDA CFLBA3		                ;LBA 3
+   c094   e6 0f                 ANI 0FH	                        ;FILTER OUT LBA BITS
+   c096   f6 f0                 ORI 0F0H	                    ;MODE LBA, MASTER DEV
+   c098   d3 96                 OUT CFREG6
+   c09a   c9                    RET
+                                
+   c09b                 CFINFO:	
+   c09b   cd 3e c0              CALL CFWAIT
+   c09e   3e ec                 MVI	A, 0ECH	                    ;DRIVE ID COMMAND
+   c0a0   d3 97                 OUT	CFREG7
+   c0a2   11 7c 1f              LXI	D, BLKDAT
+   c0a5   cd 5e c0              CALL CFREAD
+                                ;LDX	#TCRLF
+                                ;JSR	PDATA
+                        ;PRINT SERIAL
+                                ;LDX	#TSISER
+                                ;JSR	PDATA
+                                ;LDX	#BLKDAT+20
+                                ;LDAB	#20
+                                ;JSR	PRTRSN
+                                ;LDX	#TCRLF
+                                ;JSR	PDATA
+                        ;PRINT FIRMWARE REV
+                                ;LDX	#TSIFW
+                                ;JSR	PDATA
+                                ;LDX	#BLKDAT+46
+                                ;LDAB	#8
+                                ;JSR	PRTRN
+                                ;LDX	#TCRLF
+                                ;JSR	PDATA
+                        ;PRINT MODEL NUMBER
+                                ;LDX	#TSIMOD
+                                ;JSR	PDATA
+                                ;LDX	#BLKDAT+54
+                                ;LDAB	#40
+                                ;JSR	PRTRN
+                                ;LDX	#TCRLF
+                                ;JSR	PDATA
+                        ;PRINT LBA SIZE
+                                ;LDX	#TSILBA
+                                ;JSR	PDATA
+                                ;LDX	#BLKDAT+123
+                                ;JSR	OUT2HS
+                                ;DEX
+                                ;DEX
+                                ;JSR	OUT2HS
+                                ;DEX
+                                ;DEX
+                                ;JSR	OUT2HS
+                                ;DEX
+                                ;DEX
+                                ;JSR	OUT2HS
+                                ;LDX	#TCRLF
+                                ;JSR	PDATA
+   c0a8   c9                    RET        
+                                
+   c0a9                 CFRSECT:
+   c0a9   cd 82 c0      		CALL CFSLBA						;SET LBA
+   c0ac   3e 01         		MVI A, 01H
+   c0ae   d3 92         		OUT	CFREG2						;READ ONE SECTOR
+   c0b0   cd 3e c0      		CALL CFWAIT
+   c0b3   3e 20         		MVI A, 20H						;READ SECTOR COMMAND
+   c0b5   d3 97         		OUT	CFREG7
+   c0b7   11 7c 1f      		LXI	D, BLKDAT
+   c0ba   cd 5e c0      		CALL CFREAD
+   c0bd   cd 46 c0      		CALL CFCHERR
+   c0c0   c9            		RET
+                                
+   c0c1                 CFWSECT:
+   c0c1   cd 82 c0              CALL CFSLBA                     ;SET LBA
+   c0c4   3e 01                 MVI A, 01H
+   c0c6   d3 92                 OUT CFREG2                      ;WRITE ONE SECTOR
+   c0c8   cd 3e c0              CALL CFWAIT
+   c0cb   3e 30                 MVI A, 30H                      ;WRITE SECTOR COMMAND
+   c0cd   d3 97                 OUT CFREG7
+   c0cf   11 7c 1f              LXI D, BLKDAT
+   c0d2   cd 70 c0              CALL CFWRITE
+   c0d5   cd 46 c0              CALL CFCHERR
+   c0d8   c9                    RET
+                        
+                        ;KBDINIT - initializes 8042/8242 PS/2 keyboard controller
+                        ;Affects: A, B, C, Z
+                        ;Returns result code in  B:
+                        ;0x00 - OK
+                        ;0x01 - Controller self test failed
+                        ;0x02 - CLK stuck low
+                        ;0x03 - CLK stuck high
+                        ;0x04 - KBD DATA stuck low
+                        ;0x05 - KBD DATA stuck high
+                        ;0x06 - Interface didn't pass the test
+                        ;0x07 - Keyboard reset failure/no keyboard present        
+   c0d9                 KBDINIT:
+                                ;1. Disable devices
+   c0d9   cd 6c c1              CALL KBDWAITINBUF           ;Send 0xAD command to the PS/2 controller
+   c0dc   3e ad                 MVI A, 0ADH
+   c0de   d3 51                 OUT KBD_CMD
+                                ;2. Flush The Output Buffer
+   c0e0   db 51                 IN KBD_STATUS
+   c0e2   e6 01                 ANI 01H                     ;Check if there is data to flush
+   c0e4   ca e9 c0              JZ KBDCRTLSET              	;No? Next step then
+   c0e7   db 50                 IN KBD_DATA                 ;Yes? Get the data byte        
+   c0e9                 KBDCRTLSET:
+                                ;3. Set the Controller Configuration Byte (temp)
+   c0e9   cd 6c c1              CALL KBDWAITINBUF			;Send 0x60 command to the PS/2 controller
+   c0ec   3e 60                 MVI A, 60H
+   c0ee   d3 51                 OUT KBD_CMD
+   c0f0   cd 6c c1              CALL KBDWAITINBUF			;Send actual configuration byte
+   c0f3   3e 08                 MVI A, 08H					;Interrupts disabled, system flag set, first port clock enabled
+   c0f5   d3 50         		OUT KBD_DATA				;second port clock disabled, first port translation disabled
+                                ;4. Controller self test
+   c0f7   cd 6c c1      		CALL KBDWAITINBUF
+   c0fa   3e aa                 MVI A, 0AAH                 ;Send 0xAA command to the PS/2 controller
+   c0fc   d3 51                 OUT KBD_CMD
+   c0fe   cd 74 c1      		CALL KBDWAITOUTBUF          ;Wait for response
+   c101   db 50                 IN KBD_DATA                 ;Get byte
+   c103   fe 55                 CPI 55H                     ;Is it 0x55?
+   c105   06 01                 MVI B, 01H					;Return result code if not
+   c107   c0                    RNZ                          ;No? Return then
+                                ;5. Interface test
+   c108   cd 6c c1      		CALL KBDWAITINBUF
+   c10b   3e ab                 MVI A, 0ABH                 ;Send 0xAB command
+   c10d   d3 51                 OUT KBD_CMD
+   c10f   cd 74 c1      		CALL KBDWAITOUTBUF          ;Wait for response
+   c112   db 50                 IN KBD_DATA                 ;Get byte
+   c114   fe 01                 CPI 01H                     ;Check if it is CLK stuck low error
+   c116   06 02                 MVI B, 02H                  ;Return result code if it is
+   c118   c8                    RZ                         
+   c119   fe 02                 CPI 02H                     ;Check if it is CLK stuck high error
+   c11b   06 03                 MVI B, 03H                  ;Return result code if it is
+   c11d   c8                    RZ                         
+   c11e   fe 03                 CPI 03H                     ;Check if it is KBD DATA stuck low error
+   c120   06 04                 MVI B, 04H                  ;Return result code if it is
+   c122   c8                    RZ
+   c123   fe 04                 CPI 04H                     ;Check if it is KBD DATA stuck high error
+   c125   06 05                 MVI B, 05H                  ;Return result code if it is
+   c127   c8                    RZ                         
+   c128   fe 00                 CPI 00H                     ;Is it 0x00? Did it pass the test?
+   c12a   06 06                 MVI B, 06H					;Return result code if not
+   c12c   c0                    RNZ                          ;No? Return then
+                                ;6. Enable Devices
+   c12d   cd 6c c1              CALL KBDWAITINBUF
+   c130   3e ae                 MVI A, 0AEH                 ;Send 0xAE command
+   c132   d3 51                 OUT KBD_CMD
+                                ;7. Reset Device
+   c134   cd 6c c1              CALL KBDWAITINBUF           ;Wait untill ready to send
+   c137   3e ff                 MVI A, 0FFH                 ;Send 0xFF to device
+   c139   d3 50                 OUT KBD_DATA                ;Send it to device, not the controller
+   c13b   0e 82                 MVI C, 130                  ;Setup DELAY routine
+   c13d   cd 22 c2              CALL DELAY                  ;This is required to avoid freeze
+   c140   cd 74 c1              CALL KBDWAITOUTBUF          ;Wait for response
+   c143   db 50                 IN KBD_DATA                 ;Get byte
+   c145   fe fa                 CPI 0FAH                    ;Is it 0xFA? 0xFC means failure. No response means no device present.
+   c147   06 07                 MVI B, 07H					;Return result code if not
+   c149   c0                    RNZ                          ;No? Return then
+                                ;8. Set the Controller Configuration Byte (final)
+   c14a   cd 6c c1              CALL KBDWAITINBUF			;Send 0x60 command to the PS/2 controller
+   c14d   3e 60                 MVI A, 60H
+   c14f   d3 51                 OUT KBD_CMD
+   c151   cd 6c c1              CALL KBDWAITINBUF			;Send actual configuration byte
+   c154   3e 09                 MVI A, 09H					;Interrupts enabled, system flag set, first port clock enabled
+   c156   d3 50         		OUT KBD_DATA				;second port clock disabled, first port translation disabled
+                                ;9. Zero out buffer        
+   c158   3e 00                 MVI A, 00H                  
+   c15a   32 81 21              STA KBDDATA					;Zero KBDDATA
+   c15d   32 82 21              STA KBDKRFL					;Zero key release flag
+   c160   32 83 21              STA KBDSFFL					;Zero shift flag
+   c163   32 84 21              STA KBDOLD					;Zero old data
+   c166   32 85 21              STA KBDNEW					;Zero new data
+   c169   06 00                 MVI B, 00H					;Return result code
+   c16b   c9                    RET
+                                
+   c16c                 KBDWAITINBUF:
+                        		;TODO: Timeout
+   c16c   db 51         		IN KBD_STATUS
+   c16e   e6 02         		ANI 02H
+   c170   c2 6c c1      		JNZ KBDWAITINBUF
+   c173   c9            		RET
+                        		
+   c174                 KBDWAITOUTBUF:
+                        		;TODO: Timeout
+   c174   db 51         		IN KBD_STATUS
+   c176   e6 01         		ANI 01H
+   c178   ca 74 c1      		JZ KBDWAITOUTBUF
+   c17b   c9            		RET
+                        		
+   c17c                 KBD2ASCII:
+   c17c   3a 81 21      		LDA KBDDATA					;Load latest received PS/2 scancode
+   c17f   fe 00         		CPI 00H						;Is it 0? (this is needed - LDA doesn't affect flags)
+   c181   c8            		RZ							;Return if code = 0;
+   c182   fe f0         		CPI 0F0H					;Is it 0xF0 (key release)?
+   c184   c2 8f c1      		JNZ KBD2A_CHKSFT			;If not, go to the next stage
+   c187   3e 01         		MVI A, 01H					;Set key release flag
+   c189   32 82 21      		STA KBDKRFL
+   c18c   c3 f9 c1      		JMP KBD2A_CLRDATA_RETURN	;Zero out KBBDDATA and return
+   c18f                 KBD2A_CHKSFT:
+   c18f   fe 12         		CPI 12H						;Check if it is (left) shift code
+   c191   ca e1 c1      		JZ KBD2A_CHKKRSETSF			;If not, go to the next stage
+   c194   fe 59         		CPI 59H						;Check if it is (right) shift code
+   c196   ca e1 c1      		JZ KBD2A_CHKKRSETSF			;If not, go to the next stage
+   c199                 KBD2A_SVNEWDATA:
+   c199   47            		MOV B, A					;Save current code in B
+   c19a   3a 85 21      		LDA KBDNEW
+   c19d   32 84 21      		STA KBDOLD					;Old data = new data
+   c1a0   78            		MOV A, B
+   c1a1   32 85 21      		STA KBDNEW					;New data = received code
+   c1a4   3a 82 21      		LDA KBDKRFL
+   c1a7   fe 01         		CPI 01H						;Check if key release flag is set
+   c1a9   c2 c1 c1              JNZ KBD2A_CHKSHFFLSET		;If not, go to the next stage
+   c1ac   3a 84 21              LDA KBDOLD					;Load old data to acumulator
+   c1af   47                    MOV B, A
+   c1b0   3a 85 21              LDA KBDNEW
+   c1b3   b8                    CMP B						;Compare acumulator with new data
+   c1b4   ca b9 c1              JZ KBD2A_CLRKRFL			;If yes, clear release flag and return
+   c1b7   00                    NOP							;If not, handle error here.
+   c1b8   00                    NOP							;These are just a placeholders
+   c1b9                 KBD2A_CLRKRFL:
+   c1b9   3e 00         		MVI A, 00H
+   c1bb   32 82 21      		STA KBDKRFL
+   c1be   c3 f9 c1      		JMP KBD2A_CLRDATA_RETURN
+   c1c1                 KBD2A_CHKSHFFLSET:
+   c1c1   2e 01         		MVI L, 01H					;Just assume we are looking LC table
+   c1c3   3a 85 21      		LDA KBDNEW					;Put newest key scancode in A
+   c1c6   47            		MOV B, A					;Then move it to B
+   c1c7   3a 83 21      		LDA KBDSFFL					;Check shift flag
+   c1ca   fe 00         		CPI 00H                     ;This is needed - LDA doesn't affect zero flag
+   c1cc   ca d1 c1      		JZ KBD2A_LOOKUP				;Just search in LC table
+   c1cf   2e 02         		MVI L, 02H					;We are looking in UC table if shift flag is set
+   c1d1                 KBD2A_LOOKUP		
+   c1d1   cd ff c1      		CALL KBDSCANTABLE			;Call scantable searching subroutine
+   c1d4   fe 00         		CPI 00H						;Check if it returned zero (this is needed)
+   c1d6   ca f9 c1      		JZ KBD2A_CLRDATA_RETURN		;If yes, clear data and return
+   c1d9   47            		MOV B, A					;Else clear KBDDATA and return
+   c1da   3e 00         		MVI A, 00H					;Passing ASCII character in A
+   c1dc   32 81 21      		STA KBDDATA
+   c1df   78            		MOV A, B
+   c1e0   c9            		RET
+   c1e1                 KBD2A_CHKKRSETSF:        
+   c1e1   3a 82 21      		LDA KBDKRFL
+   c1e4   fe 01         		CPI 01H						;Check if key release flag is set
+   c1e6   ca f1 c1      		JZ KBD2A_CLRFLDATA_RETURN	;If yes clear flags (and data?) and return
+   c1e9   3e 01         		MVI A, 01H					;If not, set shift flag
+   c1eb   32 83 21      		STA KBDSFFL
+   c1ee   c3 f9 c1      		JMP KBD2A_CLRDATA_RETURN    ;Clear KBDDATA and return        
+   c1f1                 KBD2A_CLRFLDATA_RETURN:
+   c1f1   3e 00         		MVI A, 00H
+   c1f3   32 83 21      		STA KBDSFFL
+   c1f6   32 82 21      		STA KBDKRFL
+   c1f9                 KBD2A_CLRDATA_RETURN:
+   c1f9   3e 00                 MVI A, 00H
+   c1fb   32 81 21      		STA KBDDATA		
+   c1fe   c9            		RET
+                        		
+                        ; Current scancode must be loaded to B
+                        ; Shift in L
+                        ; Uses A, C, DE, HL		
+   c1ff                 KBDSCANTABLE:
+   c1ff   11 2c ce      		LXI D, PS2_SCANCODES  			;Table address
+   c202   26 00         		MVI H, 00H						; Make sure that H is zero
+   c204                 KBDSCANTABLE_LOOP:
+   c204   1a            		LDAX D				        	;Load next scancode from table to A
+   c205   b8            		CMP B							;Compare A with current receivedscancode (stored in B)
+   c206   ca 1d c2      		JZ KBDSCANTABLE_FOUND
+   c209   13            		INX D                       	;Increment index pointer three times
+   c20a   13            		INX D                       	;To go to the next scancode
+   c20b   13            		INX D
+   c20c   7a            		MOV A, D						;Move high address stored in DE to A
+   c20d   0e ce         		MVI C, HIGH(PS2_SCANCODES_END)	;High byte of address of scandoce table end in C
+   c20f   b9            		CMP C							;Compare A with C
+   c210   c2 17 c2      		JNZ KBDSCANTABLE_REL
+   c213   7b            		MOV A, E						;Move low address stored in DE to A
+   c214   0e c8         		MVI C, LOW(PS2_SCANCODES_END)	;Low byte of address of scandoce table end in C
+   c216   b9            		CMP C							;Compare A with C
+   c217                 KBDSCANTABLE_REL:
+   c217   da 04 c2      		JC KBDSCANTABLE_LOOP
+   c21a   3e 00         		MVI A, 00H                     	;End of the loop, return zero
+   c21c   c9            		RET
+   c21d                 KBDSCANTABLE_FOUND:
+   c21d   19            		DAD D							;Add DE to HL
+   c21e   54            		MOV D, H						;Move result back to DE
+   c21f   5d            		MOV E, L
+   c220   1a            		LDAX D							;Load ASCII code to A				
+   c221   c9            		RET								;Then return
+                        		
+                                
+   c222                 DELAY:
+   c222   06 ff                 MVI B, 255
+   c224                 PETLA_DEL_WEWN:
+   c224   00                    NOP
+   c225   00                    NOP
+   c226   05                    DCR B
+   c227   c2 24 c2              JNZ PETLA_DEL_WEWN                          
+   c22a   0d                    DCR C
+   c22b   c8                    RZ
+   c22c   c3 22 c2              JMP DELAY        
+                                
+                        
+   c22f                 MEMCOPY:
+   c22f   78                    MOV A, B                        ;Copy register B to register A
+   c230   b1                    ORA C                           ;Bitwise OR of register A and register C into register A
+   c231   c8                    RZ                              ;Return if the zero-flag is set high.
+   c232                 MC_LOOP:
+   c232   1a                    LDAX D                          ;Load A from the address pointed by DE
+   c233   77                    MOV M, A                        ;Store A into the address pointed by HL
+   c234   13                    INX D                           ;Increment DE
+   c235   23                    INX H                           ;Increment HL
+   c236   0b                    DCX B                           ;Decrement BC   (does not affect Flags)
+   c237   78                    MOV A, B                        ;Copy B to A    (so as to compare BC with zero)
+   c238   b1                    ORA C                           ;A = A | C      (set zero)
+   c239   c2 32 c2              JNZ MC_LOOP                     ;Jump to 'loop:' if the zero-flag is not set.   
+   c23c   c9                    RET                             ;Return
+                        
+   c23d   e3            TSTC:   XTHL                            ;*** TSTC OR RST 1 ***
+   c23e   cd 5f c2              CALL IGNBLK                    ;IGNORE BLANKS AND
+   c241   be                    CMP  M                          ;TEST CHARACTER
+   c242   c3 a3 c2              JMP  TC1                        ;REST OF THIS IS AT TC1
+                        ;
+   c245   3e 0d         CRLF:   MVI  A,CR                       ;*** CRLF ***
+                        ;
+   c247   f5            OUTC:   PUSH PSW                        ;*** OUTC OR RST 2 ***
+   c248   3a 00 01              LDA  OCSW                       ;PRINT CHARACTER ONLY
+   c24b   b7                    ORA  A                          ;IF OCSW SWITCH IS ON
+   c24c   c3 11 ca              JMP  OC2                        ;REST OF THIS IS AT OC2
+                        ;
+   c24f   cd e4 c5      EXPR:   CALL EXPR2                      ;*** EXPR OR RST 3 ***
+   c252   e5                    PUSH H                          ;EVALUATE AN EXPRESSION
+   c253   c3 a0 c5              JMP  EXPR1                      ;REST OF IT AT EXPR1
+   c256   57                    DB   'W'
+                        ;
+   c257   7c            COMP:   MOV  A,H                        ;*** COMP OR RST 4 ***
+   c258   ba                    CMP  D                          ;COMPARE HL WITH DE
+   c259   c0                    RNZ                             ;RETURN CORRECT C AND
+   c25a   7d                    MOV  A,L                        ;Z FLAGS
+   c25b   bb                    CMP  E                          ;BUT OLD A IS LOST
+   c25c   c9                    RET
+   c25d   41 4e                 DB   'AN'
+                        ;
+   c25f                 IGNBLK:
+   c25f   1a            SS1:    LDAX D                          ;*** IGNBLK/RST 5 ***
+   c260   fe 20                 CPI  20H                        ;IGNORE BLANKS
+   c262   c0                    RNZ                             ;IN TEXT (WHERE DE->)
+   c263   13                    INX  D                          ;AND RETURN THE FIRST
+   c264   c3 5f c2              JMP  SS1                        ;NON-BLANK CHAR. IN A
+                        ;
+   c267   f1            FINISH: POP  PSW                        ;*** FINISH/RST 6 ***
+   c268   cd e9 c7              CALL FIN                        ;CHECK END OF COMMAND
+   c26b   c3 02 c8              JMP  QWHAT                      ;PRINT "WHAT?" IF WRONG
+   c26e   47                    DB   'G'
+                        ;
+   c26f   cd 5f c2      TSTV:   CALL IGNBLK                    ;*** TSTV OR RST 7 ***
+   c272   d6 40                 SUI  40H                        ;TEST VARIABLES
+   c274   d8                    RC                              ;C:NOT A VARIABLE
+   c275   c2 93 c2              JNZ  TV1                        ;NOT "@" ARRAY
+   c278   13                    INX  D                          ;IT IS THE "@" ARRAY
+   c279   cd 9b c6              CALL PARN                       ;@ SHOULD BE FOLLOWED
+   c27c   29                    DAD  H                          ;BY (EXPR) AS ITS INDEX
+   c27d   da dc c2              JC   QHOW                       ;IS INDEX TOO BIG?
+   c280   d5                    PUSH D                          ;WILL IT OVERWRITE
+   c281   eb                    XCHG                            ;TEXT?
+   c282   cd e2 c6              CALL SIZE                       ;FIND SIZE OF FREE
+   c285   cd 57 c2              CALL COMP                       ;AND CHECK THAT
+   c288   da 32 c8              JC   ASORRY                     ;IF SO, SAY "SORRY"
+   c28b   21 00 1f              LXI  H,VARBGN                   ;IF NOT GET ADDRESS
+   c28e   cd aa c7              CALL SUBDE                      ;OF @(EXPR) AND PUT IT
+   c291   d1                    POP  D                          ;IN HL
+   c292   c9                    RET                             ;C FLAG IS CLEARED
+   c293   fe 1b         TV1:    CPI  1BH                        ;NOT @, IS IT A TO Z?
+   c295   3f                    CMC                             ;IF NOT RETURN C FLAG
+   c296   d8                    RC
+   c297   13                    INX  D                          ;IF A THROUGH Z
+   c298   21 00 1f              LXI  H,VARBGN                   ;COMPUTE ADDRESS OF
+   c29b   07                    RLC                             ;THAT VARIABLE
+   c29c   85                    ADD  L                          ;AND RETURN IT IN HL
+   c29d   6f                    MOV  L,A                        ;WITH C FLAG CLEARED
+   c29e   3e 00                 MVI  A,0
+   c2a0   8c                    ADC  H
+   c2a1   67                    MOV  H,A
+   c2a2   c9                    RET
+                        ;
+                        ;TSTC:  XTHL                            ;*** TSTC OR RST 1 ***
+                        ;       CALL IGNBLK                    ;THIS IS AT LOC. 8
+                        ;       CMP  M                          ;AND THEN JUMP HERE
+   c2a3   23            TC1:    INX  H                          ;COMPARE THE BYTE THAT
+   c2a4   ca ae c2              JZ   TC2                        ;FOLLOWS THE RST INST.
+   c2a7   c5                    PUSH B                          ;WITH THE TEXT (DE->)
+   c2a8   4e                    MOV  C,M                        ;IF NOT =, ADD THE 2ND
+   c2a9   06 00                 MVI  B,0                        ;BYTE THAT FOLLOWS THE
+   c2ab   09                    DAD  B                          ;RST TO THE OLD PC
+   c2ac   c1                    POP  B                          ;I.E., DO A RELATIVE
+   c2ad   1b                    DCX  D                          ;JUMP IF NOT =
+   c2ae   13            TC2:    INX  D                          ;IF =, SKIP THOSE BYTES
+   c2af   23                    INX  H                          ;AND CONTINUE
+   c2b0   e3                    XTHL
+   c2b1   c9                    RET
+                        ;
+   c2b2   21 00 00      TSTNUM: LXI  H,0                        ;*** TSTNUM ***
+   c2b5   44                    MOV  B,H                        ;TEST IF THE TEXT IS
+   c2b6   cd 5f c2              CALL IGNBLK                    ;A NUMBER
+   c2b9   fe 30         TN1:    CPI  30H                        ;IF NOT, RETURN 0 IN
+   c2bb   d8                    RC                              ;B AND HL
+   c2bc   fe 3a                 CPI  3AH                        ;IF NUMBERS, CONVERT
+   c2be   d0                    RNC                             ;TO BINARY IN HL AND
+   c2bf   3e f0                 MVI  A,0F0H                     ;SET B TO # OF DIGITS
+   c2c1   a4                    ANA  H                          ;IF H>255, THERE IS NO
+   c2c2   c2 dc c2              JNZ  QHOW                       ;ROOM FOR NEXT DIGIT
+   c2c5   04                    INR  B                          ;B COUNTS # OF DIGITS
+   c2c6   c5                    PUSH B
+   c2c7   44                    MOV  B,H                        ;HL=10*HL+(NEW DIGIT)
+   c2c8   4d                    MOV  C,L
+   c2c9   29                    DAD  H                          ;WHERE 10* IS DONE BY
+   c2ca   29                    DAD  H                          ;SHIFT AND ADD
+   c2cb   09                    DAD  B
+   c2cc   29                    DAD  H
+   c2cd   1a                    LDAX D                          ;AND (DIGIT) IS FROM
+   c2ce   13                    INX  D                          ;STRIPPING THE ASCII
+   c2cf   e6 0f                 ANI  0FH                        ;CODE
+   c2d1   85                    ADD  L
+   c2d2   6f                    MOV  L,A
+   c2d3   3e 00                 MVI  A,0
+   c2d5   8c                    ADC  H
+   c2d6   67                    MOV  H,A
+   c2d7   c1                    POP  B
+   c2d8   1a                    LDAX D                          ;DO THIS DIGIT AFTER
+   c2d9   f2 b9 c2              JP   TN1                        ;DIGIT. S SAYS OVERFLOW
+   c2dc   d5            QHOW:   PUSH D                          ;*** ERROR "HOW?" ***
+   c2dd   11 e3 c2      AHOW:   LXI  D,HOW
+   c2e0   c3 06 c8              JMP  ERROR
+   c2e3   48 4f 57 3f   HOW:    DB   'HOW?'
+   c2e7   0d                    DB   CR
+   c2e8   4f 4b         OK:     DB   'OK'
+   c2ea   0d                    DB   CR
+   c2eb   57 48 41 54   WHAT:   DB   'WHAT?'
+   c2ef   3f            
+   c2f0   0d                    DB   CR
+   c2f1   53 4f 52 52   SORRY:  DB   'SORRY'
+   c2f5   59            
+   c2f6   0d                    DB   CR
+                        ;
+                        ;*************************************************************
+                        ;
+                        ; *** MAIN ***
+                        ;
+                        ; THIS IS THE MAIN LOOP THAT COLLECTS THE TINY BASIC PROGRAM
+                        ; AND STORES IT IN THE MEMORY.
+                        ;
+                        ; AT START, IT PRINTS OUT "(CR)OK(CR)", AND INITIALIZES THE
+                        ; STACK AND SOME OTHER INTERNAL VARIABLES.  THEN IT PROMPTS
+                        ; ">" AND READS A LINE.  IF THE LINE STARTS WITH A NON-ZERO
+                        ; NUMBER, THIS NUMBER IS THE LINE NUMBER.  THE LINE NUMBER
+                        ; (IN 16 BIT BINARY) AND THE REST OF THE LINE (INCLUDING CR)
+                        ; IS STORED IN THE MEMORY.  IF A LINE WITH THE SAME LINE
+                        ; NUMBER IS ALREADY THERE, IT IS REPLACED BY THE NEW ONE.  IF
+                        ; THE REST OF THE LINE CONSISTS OF A CR ONLY, IT IS NOT STORED
+                        ; AND ANY EXISTING LINE WITH THE SAME LINE NUMBER IS DELETED.
+                        ;
+                        ; AFTER A LINE IS INSERTED, REPLACED, OR DELETED, THE PROGRAM
+                        ; LOOPS BACK AND ASKS FOR ANOTHER LINE.  THIS LOOP WILL BE
+                        ; TERMINATED WHEN IT READS A LINE WITH ZERO OR NO LINE
+                        ; NUMBER; AND CONTROL IS TRANSFERED TO "DIRECT".
+                        ;
+                        ; TINY BASIC PROGRAM SAVE AREA STARTS AT THE MEMORY LOCATION
+                        ; LABELED "TXTBGN" AND ENDS AT "TXTEND".  WE ALWAYS FILL THIS
+                        ; AREA STARTING AT "TXTBGN", THE UNFILLED PORTION IS POINTED
+                        ; BY THE CONTENT OF A MEMORY LOCATION LABELED "TXTUNF".
+                        ;
+                        ; THE MEMORY LOCATION "CURRNT" POINTS TO THE LINE NUMBER
+                        ; THAT IS CURRENTLY BEING INTERPRETED.  WHILE WE ARE IN
+                        ; THIS LOOP OR WHILE WE ARE INTERPRETING A DIRECT COMMAND
+                        ; (SEE NEXT SECTION). "CURRNT" SHOULD POINT TO A 0.
+                        ;
+   c2f7   31 ff 7f      RSTART: LXI  SP,STACK
+   c2fa   cd 45 c2      ST1:    CALL CRLF                       ;AND JUMP TO HERE
+   c2fd   11 e8 c2              LXI  D,OK                       ;DE->STRING
+   c300   97                    SUB  A                          ;A=0
+   c301   cd a6 c8              CALL PRTSTG                     ;PRINT STRING UNTIL CR
+   c304   21 0b c3              LXI  H,ST2+1                    ;LITERAL 0
+   c307   22 12 01              SHLD CURRNT                     ;CURRENT->LINE # = 0
+   c30a   21 00 00      ST2:    LXI  H,0
+   c30d   22 1a 01              SHLD LOPVAR
+   c310   22 14 01              SHLD STKGOS
+   c313   3e 3e         ST3:    MVI  A,3EH                      ;PROMPT '>' AND
+   c315   cd 38 c8              CALL GETLN                      ;READ A LINE
+   c318   d5                    PUSH D                          ;DE->END OF LINE
+   c319   11 37 1f              LXI  D,BUFFER                   ;DE->BEGINNING OF LINE
+   c31c   cd b2 c2              CALL TSTNUM                     ;TEST IF IT IS A NUMBER
+   c31f   cd 5f c2              CALL IGNBLK
+   c322   7c                    MOV  A,H                        ;HL=VALUE OF THE # OR
+   c323   b5                    ORA  L                          ;0 IF NO # WAS FOUND
+   c324   c1                    POP  B                          ;BC->END OF LINE
+   c325   ca c8 ce              JZ   DIRECT
+   c328   1b                    DCX  D                          ;BACKUP DE AND SAVE
+   c329   7c                    MOV  A,H                        ;VALUE OF LINE # THERE
+   c32a   12                    STAX D
+   c32b   1b                    DCX  D
+   c32c   7d                    MOV  A,L
+   c32d   12                    STAX D
+   c32e   c5                    PUSH B                          ;BC,DE->BEGIN, END
+   c32f   d5                    PUSH D
+   c330   79                    MOV  A,C
+   c331   93                    SUB  E
+   c332   f5                    PUSH PSW                        ;A=# OF BYTES IN LINE
+   c333   cd 7c c8              CALL FNDLN                      ;FIND THIS LINE IN SAVE
+   c336   d5                    PUSH D                          ;AREA, DE->SAVE AREA
+   c337   c2 4a c3              JNZ  ST4                        ;NZ:NOT FOUND, INSERT
+   c33a   d5                    PUSH D                          ;Z:FOUND, DELETE IT
+   c33b   cd 9a c8              CALL FNDNXT                     ;FIND NEXT LINE
+                                                                ;DE->NEXT LINE
+   c33e   c1                    POP  B                          ;BC->LINE TO BE DELETED
+   c33f   2a 26 01              LHLD TXTUNF                     ;HL->UNFILLED SAVE AREA
+   c342   cd 3d c9              CALL MVUP                       ;MOVE UP TO DELETE
+   c345   60                    MOV  H,B                        ;TXTUNF->UNFILLED AREA
+   c346   69                    MOV  L,C
+   c347   22 26 01              SHLD TXTUNF                     ;UPDATE
+   c34a   c1            ST4:    POP  B                          ;GET READY TO INSERT
+   c34b   2a 26 01              LHLD TXTUNF                     ;BUT FIRST CHECK IF
+   c34e   f1                    POP  PSW                        ;THE LENGTH OF NEW LINE
+   c34f   e5                    PUSH H                          ;IS 3 (LINE # AND CR)
+   c350   fe 03                 CPI  3                          ;THEN DO NOT INSERT
+   c352   ca f7 c2              JZ   RSTART                     ;MUST CLEAR THE STACK
+   c355   85                    ADD  L                          ;COMPUTE NEW TXTUNF
+   c356   6f                    MOV  L,A
+   c357   3e 00                 MVI  A,0
+   c359   8c                    ADC  H
+   c35a   67                    MOV  H,A                        ;HL->NEW UNFILLED AREA
+   c35b   11 00 1f              LXI  D,TXTEND                   ;CHECK TO SEE IF THERE
+   c35e   cd 57 c2              CALL COMP                       ;IS ENOUGH SPACE
+   c361   d2 31 c8              JNC  QSORRY                     ;SORRY, NO ROOM FOR IT
+   c364   22 26 01              SHLD TXTUNF                     ;OK, UPDATE TXTUNF
+   c367   d1                    POP  D                          ;DE->OLD UNFILLED AREA
+   c368   cd 48 c9              CALL MVDOWN
+   c36b   d1                    POP  D                          ;DE->BEGIN, HL->END
+   c36c   e1                    POP  H
+   c36d   cd 3d c9              CALL MVUP                       ;MOVE NEW LINE TO SAVE
+   c370   c3 13 c3              JMP  ST3                        ;AREA
+                        ;
+                        ;*************************************************************
+                        ;
+                        ; WHAT FOLLOWS IS THE CODE TO EXECUTE DIRECT AND STATEMENT
+                        ; COMMANDS.  CONTROL IS TRANSFERED TO THESE POINTS VIA THE
+                        ; COMMAND TABLE LOOKUP CODE OF 'DIRECT' AND 'EXEC' IN LAST
+                        ; SECTION.  AFTER THE COMMAND IS EXECUTED, CONTROL IS
+                        ; TRANSFERED TO OTHERS SECTIONS AS FOLLOWS:
+                        ;
+                        ; FOR 'LIST', 'NEW', AND 'STOP': GO BACK TO 'RSTART'
+                        ; FOR 'RUN': GO EXECUTE THE FIRST STORED LINE IF ANY, ELSE
+                        ; GO BACK TO 'RSTART'.
+                        ; FOR 'GOTO' AND 'GOSUB': GO EXECUTE THE TARGET LINE.
+                        ; FOR 'RETURN' AND 'NEXT': GO BACK TO SAVED RETURN LINE.
+                        ; FOR ALL OTHERS: IF 'CURRENT' -> 0, GO TO 'RSTART', ELSE
+                        ; GO EXECUTE NEXT COMMAND.  (THIS IS DONE IN 'FINISH'.)
+                        ;*************************************************************
+                        ;
+                        ; *** NEW *** STOP *** RUN (& FRIENDS) *** & GOTO ***
+                        ;
+                        ; 'NEW(CR)' SETS 'TXTUNF' TO POINT TO 'TXTBGN'
+                        ;
+                        ; 'STOP(CR)' GOES BACK TO 'RSTART'
+                        ;
+                        ; 'RUN(CR)' FINDS THE FIRST STORED LINE, STORE ITS ADDRESS (IN
+                        ; 'CURRENT'), AND START EXECUTE IT.  NOTE THAT ONLY THOSE
+                        ; COMMANDS IN TAB2 ARE LEGAL FOR STORED PROGRAM.
+                        ;
+                        ; THERE ARE 3 MORE ENTRIES IN 'RUN':
+                        ; 'RUNNXL' FINDS NEXT LINE, STORES ITS ADDR. AND EXECUTES IT.
+                        ; 'RUNTSL' STORES THE ADDRESS OF THIS LINE AND EXECUTES IT.
+                        ; 'RUNSML' CONTINUES THE EXECUTION ON SAME LINE.
+                        ;
+                        ; 'GOTO EXPR(CR)' EVALUATES THE EXPRESSION, FIND THE TARGET
+                        ; LINE, AND JUMP TO 'RUNTSL' TO DO IT.
+                        ;
+   c373   cd fc c7      NEW:    CALL ENDCHK                     ;*** NEW(CR) ***
+   c376   21 28 01              LXI  H,TXTBGN
+   c379   22 26 01              SHLD TXTUNF
+                        ;
+   c37c   cd fc c7      STOP:   CALL ENDCHK                     ;*** STOP(CR) ***
+   c37f   c3 f7 c2              JMP  RSTART
+                        ;
+   c382   cd fc c7      RUN:    CALL ENDCHK                     ;*** RUN(CR) ***
+   c385   11 28 01              LXI  D,TXTBGN                   ;FIRST SAVED LINE
+                        ;
+   c388   21 00 00      RUNNXL: LXI  H,0                        ;*** RUNNXL ***
+   c38b   cd 84 c8              CALL FNDLP                      ;FIND WHATEVER LINE #
+   c38e   da f7 c2              JC   RSTART                     ;C:PASSED TXTUNF, QUIT
+                        ;
+   c391   eb            RUNTSL: XCHG                            ;*** RUNTSL ***
+   c392   22 12 01              SHLD CURRNT                     ;SET 'CURRENT'->LINE #
+   c395   eb                    XCHG
+   c396   13                    INX  D                          ;BUMP PASS LINE #
+   c397   13                    INX  D
+                        ;
+   c398   cd 2b ca      RUNSML: CALL CHKIO                      ;*** RUNSML ***
+   c39b   21 90 ca              LXI  H,TAB2-1                   ;FIND COMMAND IN TAB2
+   c39e   c3 cb ce              JMP  EXEC                       ;AND EXECUTE IT
+                        ;
+   c3a1   cd 4f c2      GOTO:   CALL EXPR                       ;*** GOTO EXPR ***
+   c3a4   d5                    PUSH D                          ;SAVE FOR ERROR ROUTINE
+   c3a5   cd fc c7              CALL ENDCHK                     ;MUST FIND A CR
+   c3a8   cd 7c c8              CALL FNDLN                      ;FIND THE TARGET LINE
+   c3ab   c2 dd c2              JNZ  AHOW                       ;NO SUCH LINE #
+   c3ae   f1                    POP  PSW                        ;CLEAR THE PUSH DE
+   c3af   c3 91 c3              JMP  RUNTSL                     ;GO DO IT
+                        ;
+                        ;*************************************************************
+                        ;
+                        ; *** LIST *** & PRINT ***
+                        ;
+                        ; LIST HAS TWO FORMS:
+                        ; 'LIST(CR)' LISTS ALL SAVED LINES
+                        ; 'LIST #(CR)' START LIST AT THIS LINE #
+                        ; YOU CAN STOP THE LISTING BY CONTROL C KEY
+                        ;
+                        ; PRINT COMMAND IS 'PRINT ....;' OR 'PRINT ....(CR)'
+                        ; WHERE '....' IS A LIST OF EXPRESIONS, FORMATS, BACK-
+                        ; ARROWS, AND STRINGS.  THESE ITEMS ARE SEPERATED BY COMMAS.
+                        ;
+                        ; A FORMAT IS A POUND SIGN FOLLOWED BY A NUMBER.  IT CONTROLS
+                        ; THE NUMBER OF SPACES THE VALUE OF A EXPRESION IS GOING TO
+                        ; BE PRINTED.  IT STAYS EFFECTIVE FOR THE REST OF THE PRINT
+                        ; COMMAND UNLESS CHANGED BY ANOTHER FORMAT.  IF NO FORMAT IS
+                        ; SPECIFIED, 6 POSITIONS WILL BE USED.
+                        ;
+                        ; A STRING IS QUOTED IN A PAIR OF SINGLE QUOTES OR A PAIR OF
+                        ; DOUBLE QUOTES.
+                        ;
+                        ; A BACK-ARROW MEANS GENERATE A (CR) WITHOUT (LF)
+                        ;
+                        ; A (CRLF) IS GENERATED AFTER THE ENTIRE LIST HAS BEEN
+                        ; PRINTED OR IF THE LIST IS A NULL LIST.  HOWEVER IF THE LIST
+                        ; ENDED WITH A COMMA, NO (CRLF) IS GENERATED.
+                        ;
+   c3b2   cd b2 c2      LIST:   CALL TSTNUM                     ;TEST IF THERE IS A #
+   c3b5   cd fc c7              CALL ENDCHK                     ;IF NO # WE GET A 0
+   c3b8   cd 7c c8              CALL FNDLN                      ;FIND THIS OR NEXT LINE
+   c3bb   da f7 c2      LS1:    JC   RSTART                     ;C:PASSED TXTUNF
+   c3be   cd 28 c9              CALL PRTLN                      ;PRINT THE LINE
+   c3c1   cd 2b ca              CALL CHKIO                      ;STOP IF HIT CONTROL-C
+   c3c4   cd 84 c8              CALL FNDLP                      ;FIND NEXT LINE
+   c3c7   c3 bb c3              JMP  LS1                        ;AND LOOP BACK
+                        ;
+   c3ca   0e 06         PRINT:  MVI  C,6                        ;C = # OF SPACES
+   c3cc   cd 3d c2              CALL TSTC                       ;IF NULL LIST & ";"
+   c3cf   3b                    DB   3BH
+   c3d0   06                    DB   PR2-$-1
+   c3d1   cd 45 c2              CALL CRLF                       ;GIVE CR-LF AND
+   c3d4   c3 98 c3              JMP  RUNSML                     ;CONTINUE SAME LINE
+   c3d7   cd 3d c2      PR2:    CALL TSTC                       ;IF NULL LIST (CR)
+   c3da   0d                    DB   CR
+   c3db   06                    DB   PR0-$-1
+   c3dc   cd 45 c2              CALL CRLF                       ;ALSO GIVE CR-LF AND
+   c3df   c3 88 c3              JMP  RUNNXL                     ;GO TO NEXT LINE
+   c3e2   cd 3d c2      PR0:    CALL TSTC                          ;ELSE IS IT FORMAT?
+   c3e5   23                    DB   '#'
+   c3e6   07                    DB   PR1-$-1
+   c3e7   cd 4f c2              CALL EXPR                       ;YES, EVALUATE EXPR.
+   c3ea   4d                    MOV  C,L                        ;AND SAVE IT IN C
+   c3eb   c3 f4 c3              JMP  PR3                        ;LOOK FOR MORE TO PRINT
+   c3ee   cd b4 c8      PR1:    CALL QTSTG                      ;OR IS IT A STRING?
+   c3f1   c3 05 c4              JMP  PR8                        ;IF NOT, MUST BE EXPR.
+   c3f4   cd 3d c2      PR3:    CALL TSTC                       ;IF ",", GO FIND NEXT
+   c3f7   2c                    DB   ','
+   c3f8   06                    DB   PR6-$-1
+   c3f9   cd e9 c7              CALL FIN                        ;IN THE LIST.
+   c3fc   c3 e2 c3              JMP  PR0                        ;LIST CONTINUES
+   c3ff   cd 45 c2      PR6:    CALL CRLF                       ;LIST ENDS
+   c402   cd 67 c2              CALL FINISH
+   c405   cd 4f c2      PR8:    CALL EXPR                       ;EVALUATE THE EXPR
+   c408   c5                    PUSH B
+   c409   cd e4 c8              CALL PRTNUM                     ;PRINT THE VALUE
+   c40c   c1                    POP  B
+   c40d   c3 f4 c3              JMP  PR3                        ;MORE TO PRINT?
+                        		
+                        ;
+                        ;*************************************************************
+                        ;
+                        ; *** GOSUB *** & RETURN ***
+                        ;
+                        ; 'GOSUB EXPR;' OR 'GOSUB EXPR (CR)' IS LIKE THE 'GOTO'
+                        ; COMMAND, EXCEPT THAT THE CURRENT TEXT POINTER, STACK POINTER
+                        ; ETC. ARE SAVE SO THAT EXECUTION CAN BE CONTINUED AFTER THE
+                        ; SUBROUTINE 'RETURN'.  IN ORDER THAT 'GOSUB' CAN BE NESTED
+                        ; (AND EVEN RECURSIVE), THE SAVE AREA MUST BE STACKED.
+                        ; THE STACK POINTER IS SAVED IN 'STKGOS', THE OLD 'STKGOS' IS
+                        ; SAVED IN THE STACK.  IF WE ARE IN THE MAIN ROUTINE, 'STKGOS'
+                        ; IS ZERO (THIS WAS DONE BY THE "MAIN" SECTION OF THE CODE),
+                        ; BUT WE STILL SAVE IT AS A FLAG FOR NO FURTHER 'RETURN'S.
+                        ;
+                        ; 'RETURN(CR)' UNDOS EVERYTHING THAT 'GOSUB' DID, AND THUS
+                        ; RETURN THE EXECUTION TO THE COMMAND AFTER THE MOST RECENT
+                        ; 'GOSUB'.  IF 'STKGOS' IS ZERO, IT INDICATES THAT WE
+                        ; NEVER HAD A 'GOSUB' AND IS THUS AN ERROR.
+                        ;
+   c410   cd 73 c9      GOSUB:  CALL PUSHA                      ;SAVE THE CURRENT "FOR"
+   c413   cd 4f c2              CALL EXPR                       ;PARAMETERS
+   c416   d5                    PUSH D                          ;AND TEXT POINTER
+   c417   cd 7c c8              CALL FNDLN                      ;FIND THE TARGET LINE
+   c41a   c2 dd c2              JNZ  AHOW                       ;NOT THERE. SAY "HOW?"
+   c41d   2a 12 01              LHLD CURRNT                     ;FOUND IT, SAVE OLD
+   c420   e5                    PUSH H                          ;'CURRNT' OLD 'STKGOS'
+   c421   2a 14 01              LHLD STKGOS
+   c424   e5                    PUSH H
+   c425   21 00 00              LXI  H,0                        ;AND LOAD NEW ONES
+   c428   22 1a 01              SHLD LOPVAR
+   c42b   39                    DAD  SP
+   c42c   22 14 01              SHLD STKGOS
+   c42f   c3 91 c3              JMP  RUNTSL                     ;THEN RUN THAT LINE
+   c432   cd fc c7      RETURN: CALL ENDCHK                     ;THERE MUST BE A CR
+   c435   2a 14 01              LHLD STKGOS                     ;OLD STACK POINTER
+   c438   7c                    MOV  A,H                        ;0 MEANS NOT EXIST
+   c439   b5                    ORA  L
+   c43a   ca 02 c8              JZ   QWHAT                      ;SO, WE SAY: "WHAT?"
+   c43d   f9                    SPHL                            ;ELSE, RESTORE IT
+   c43e   e1                    POP  H
+   c43f   22 14 01              SHLD STKGOS                     ;AND THE OLD 'STKGOS'
+   c442   e1                    POP  H
+   c443   22 12 01              SHLD CURRNT                     ;AND THE OLD 'CURRNT'
+   c446   d1                    POP  D                          ;OLD TEXT POINTER
+   c447   cd 57 c9              CALL POPA                       ;OLD "FOR" PARAMETERS
+   c44a   cd 67 c2              CALL FINISH                     ;AND WE ARE BACK HOME
+                        ;
+                        ;*************************************************************
+                        ;
+                        ; *** FOR *** & NEXT ***
+                        ;
+                        ; 'FOR' HAS TWO FORMS:
+                        ; 'FOR VAR=EXP1 TO EXP2 STEP EXP3' AND 'FOR VAR=EXP1 TO EXP2'
+                        ; THE SECOND FORM MEANS THE SAME THING AS THE FIRST FORM WITH
+                        ; EXP3=1.  (I.E., WITH A STEP OF +1.)
+                        ; TBI WILL FIND THE VARIABLE VAR, AND SET ITS VALUE TO THE
+                        ; CURRENT VALUE OF EXP1.  IT ALSO EVALUATES EXP2 AND EXP3
+                        ; AND SAVE ALL THESE TOGETHER WITH THE TEXT POINTER ETC. IN
+                        ; THE 'FOR' SAVE AREA, WHICH CONSISTS OF 'LOPVAR', 'LOPINC',
+                        ; 'LOPLMT', 'LOPLN', AND 'LOPPT'.  IF THERE IS ALREADY SOME-
+                        ; THING IN THE SAVE AREA (THIS IS INDICATED BY A NON-ZERO
+                        ; 'LOPVAR'), THEN THE OLD SAVE AREA IS SAVED IN THE STACK
+                        ; BEFORE THE NEW ONE OVERWRITES IT.
+                        ; TBI WILL THEN DIG IN THE STACK AND FIND OUT IF THIS SAME
+                        ; VARIABLE WAS USED IN ANOTHER CURRENTLY ACTIVE 'FOR' LOOP.
+                        ; IF THAT IS THE CASE, THEN THE OLD 'FOR' LOOP IS DEACTIVATED.
+                        ; (PURGED FROM THE STACK..)
+                        ;
+                        ; 'NEXT VAR' SERVES AS THE LOGICAL (NOT NECESSARILLY PHYSICAL)
+                        ; END OF THE 'FOR' LOOP.  THE CONTROL VARIABLE VAR. IS CHECKED
+                        ; WITH THE 'LOPVAR'.  IF THEY ARE NOT THE SAME, TBI DIGS IN
+                        ; THE STACK TO FIND THE RIGHT ONE AND PURGES ALL THOSE THAT
+                        ; DID NOT MATCH.  EITHER WAY, TBI THEN ADDS THE 'STEP' TO
+                        ; THAT VARIABLE AND CHECK THE RESULT WITH THE LIMIT.  IF IT
+                        ; IS WITHIN THE LIMIT, CONTROL LOOPS BACK TO THE COMMAND
+                        ; FOLLOWING THE 'FOR'.  IF OUTSIDE THE LIMIT, THE SAVE AREA
+                        ; IS PURGED AND EXECUTION CONTINUES.
+                        ;
+   c44d   cd 73 c9      FOR:    CALL PUSHA                      ;SAVE THE OLD SAVE AREA
+   c450   cd d0 c7              CALL SETVAL                     ;SET THE CONTROL VAR.
+   c453   2b                    DCX  H                          ;HL IS ITS ADDRESS
+   c454   22 1a 01              SHLD LOPVAR                     ;SAVE THAT
+   c457   21 07 cb              LXI  H,TAB5-1                   ;USE 'EXEC' TO LOOK
+   c45a   c3 cb ce              JMP  EXEC                       ;FOR THE WORD 'TO'
+   c45d   cd 4f c2      FR1:    CALL EXPR                       ;EVALUATE THE LIMIT
+   c460   22 1e 01              SHLD LOPLMT                     ;SAVE THAT
+   c463   21 0d cb              LXI  H,TAB6-1                   ;USE 'EXEC' TO LOOK
+   c466   c3 cb ce              JMP EXEC                        ;FOR THE WORD 'STEP'
+   c469   cd 4f c2      FR2:    CALL EXPR                       ;FOUND IT, GET STEP
+   c46c   c3 72 c4              JMP  FR4
+   c46f   21 01 00      FR3:    LXI  H,1H                       ;NOT FOUND, SET TO 1
+   c472   22 1c 01      FR4:    SHLD LOPINC                     ;SAVE THAT TOO
+   c475   2a 12 01      FR5:    LHLD CURRNT                     ;SAVE CURRENT LINE #
+   c478   22 20 01              SHLD LOPLN
+   c47b   eb                    XCHG                            ;AND TEXT POINTER
+   c47c   22 22 01              SHLD LOPPT
+   c47f   01 0a 00              LXI  B,0AH                      ;DIG INTO STACK TO
+   c482   2a 1a 01              LHLD LOPVAR                     ;FIND 'LOPVAR'
+   c485   eb                    XCHG
+   c486   60                    MOV  H,B
+   c487   68                    MOV  L,B                        ;HL=0 NOW
+   c488   39                    DAD  SP                         ;HERE IS THE STACK
+   c489   3e                    DB   3EH
+   c48a   09            FR7:    DAD  B                          ;EACH LEVEL IS 10 DEEP
+   c48b   7e                    MOV  A,M                        ;GET THAT OLD 'LOPVAR'
+   c48c   23                    INX  H
+   c48d   b6                    ORA  M
+   c48e   ca ab c4              JZ   FR8                        ;0 SAYS NO MORE IN IT
+   c491   7e                    MOV  A,M
+   c492   2b                    DCX  H
+   c493   ba                    CMP  D                          ;SAME AS THIS ONE?
+   c494   c2 8a c4              JNZ  FR7
+   c497   7e                    MOV  A,M                        ;THE OTHER HALF?
+   c498   bb                    CMP  E
+   c499   c2 8a c4              JNZ  FR7
+   c49c   eb                    XCHG                            ;YES, FOUND ONE
+   c49d   21 00 00              LXI  H,0H
+   c4a0   39                    DAD  SP                         ;TRY TO MOVE SP
+   c4a1   44                    MOV  B,H
+   c4a2   4d                    MOV  C,L
+   c4a3   21 0a 00              LXI  H,0AH
+   c4a6   19                    DAD  D
+   c4a7   cd 48 c9              CALL MVDOWN                     ;AND PURGE 10 WORDS
+   c4aa   f9                    SPHL                            ;IN THE STACK
+   c4ab   2a 22 01      FR8:    LHLD LOPPT                      ;JOB DONE, RESTORE DE
+   c4ae   eb                    XCHG
+   c4af   cd 67 c2              CALL FINISH                     ;AND CONTINUE
+                        ;
+   c4b2   cd 6f c2      NEXT:   CALL TSTV                       ;GET ADDRESS OF VAR.
+   c4b5   da 02 c8              JC   QWHAT                      ;NO VARIABLE, "WHAT?"
+   c4b8   22 16 01              SHLD VARNXT                     ;YES, SAVE IT
+   c4bb   d5            NX0:    PUSH D                          ;SAVE TEXT POINTER
+   c4bc   eb                    XCHG
+   c4bd   2a 1a 01              LHLD LOPVAR                     ;GET VAR. IN 'FOR'
+   c4c0   7c                    MOV  A,H
+   c4c1   b5                    ORA  L                          ;0 SAYS NEVER HAD ONE
+   c4c2   ca 03 c8              JZ   AWHAT                      ;SO WE ASK: "WHAT?"
+   c4c5   cd 57 c2              CALL COMP                       ;ELSE WE CHECK THEM
+   c4c8   ca d5 c4              JZ   NX3                        ;OK, THEY AGREE
+   c4cb   d1                    POP  D                          ;NO, LET'S SEE
+   c4cc   cd 57 c9              CALL POPA                       ;PURGE CURRENT LOOP
+   c4cf   2a 16 01              LHLD VARNXT                     ;AND POP ONE LEVEL
+   c4d2   c3 bb c4              JMP  NX0                        ;GO CHECK AGAIN
+   c4d5   5e            NX3:    MOV  E,M                        ;COME HERE WHEN AGREED
+   c4d6   23                    INX  H
+   c4d7   56                    MOV  D,M                        ;DE=VALUE OF VAR.
+   c4d8   2a 1c 01              LHLD LOPINC
+   c4db   e5                    PUSH H
+   c4dc   7c                    MOV  A,H
+   c4dd   aa                    XRA  D
+   c4de   7a                    MOV  A,D
+   c4df   19                    DAD  D                          ;ADD ONE STEP
+   c4e0   fa e7 c4              JM   NX4
+   c4e3   ac                    XRA  H
+   c4e4   fa 0b c5              JM   NX5
+   c4e7   eb            NX4:    XCHG
+   c4e8   2a 1a 01              LHLD LOPVAR                     ;PUT IT BACK
+   c4eb   73                    MOV  M,E
+   c4ec   23                    INX  H
+   c4ed   72                    MOV  M,D
+   c4ee   2a 1e 01              LHLD LOPLMT                     ;HL->LIMIT
+   c4f1   f1                    POP  PSW                        ;OLD HL
+   c4f2   b7                    ORA  A
+   c4f3   f2 f7 c4              JP   NX1                        ;STEP > 0
+   c4f6   eb                    XCHG                            ;STEP < 0
+   c4f7   cd c6 c7      NX1:    CALL CKHLDE                     ;COMPARE WITH LIMIT
+   c4fa   d1                    POP  D                          ;RESTORE TEXT POINTER
+   c4fb   da 0d c5              JC   NX2                        ;OUTSIDE LIMIT
+   c4fe   2a 20 01              LHLD LOPLN                      ;WITHIN LIMIT, GO
+   c501   22 12 01              SHLD CURRNT                     ;BACK TO THE SAVED
+   c504   2a 22 01              LHLD LOPPT                      ;'CURRNT' AND TEXT
+   c507   eb                    XCHG                            ;POINTER
+   c508   cd 67 c2              CALL FINISH
+   c50b   e1            NX5:    POP  H
+   c50c   d1                    POP  D
+   c50d   cd 57 c9      NX2:    CALL POPA                       ;PURGE THIS LOOP
+   c510   cd 67 c2              CALL FINISH
+                        ;
+                        ;*************************************************************
+                        ;
+                        ; *** REM *** IF *** INPUT *** & LET (& DEFLT) ***
+                        ;
+                        ; 'REM' CAN BE FOLLOWED BY ANYTHING AND IS IGNORED BY TBI.
+                        ; TBI TREATS IT LIKE AN 'IF' WITH A FALSE CONDITION.
+                        ;
+                        ; 'IF' IS FOLLOWED BY AN EXPR. AS A CONDITION AND ONE OR MORE
+                        ; COMMANDS (INCLUDING OTHER 'IF'S) SEPERATED BY SEMI-COLONS.
+                        ; NOTE THAT THE WORD 'THEN' IS NOT USED.  TBI EVALUATES THE
+                        ; EXPR. IF IT IS NON-ZERO, EXECUTION CONTINUES.  IF THE
+                        ; EXPR. IS ZERO, THE COMMANDS THAT FOLLOWS ARE IGNORED AND
+                        ; EXECUTION CONTINUES AT THE NEXT LINE.
+                        ;
+                        ; 'INPUT' COMMAND IS LIKE THE 'PRINT' COMMAND, AND IS FOLLOWED
+                        ; BY A LIST OF ITEMS.  IF THE ITEM IS A STRING IN SINGLE OR
+                        ; DOUBLE QUOTES, OR IS A BACK-ARROW, IT HAS THE SAME EFFECT AS
+                        ; IN 'PRINT'.  IF AN ITEM IS A VARIABLE, THIS VARIABLE NAME IS
+                        ; PRINTED OUT FOLLOWED BY A COLON.  THEN TBI WAITS FOR AN
+                        ; EXPR. TO BE TYPED IN.  THE VARIABLE IS THEN SET TO THE
+                        ; VALUE OF THIS EXPR.  IF THE VARIABLE IS PROCEDED BY A STRING
+                        ; (AGAIN IN SINGLE OR DOUBLE QUOTES), THE STRING WILL BE
+                        ; PRINTED FOLLOWED BY A COLON.  TBI THEN WAITS FOR INPUT EXPR.
+                        ; AND SET THE VARIABLE TO THE VALUE OF THE EXPR.
+                        ;
+                        ; IF THE INPUT EXPR. IS INVALID, TBI WILL PRINT "WHAT?",
+                        ; "HOW?" OR "SORRY" AND REPRINT THE PROMPT AND REDO THE INPUT.
+                        ; THE EXECUTION WILL NOT TERMINATE UNLESS YOU TYPE CONTROL-C.
+                        ; THIS IS HANDLED IN 'INPERR'.
+                        ;
+                        ; 'LET' IS FOLLOWED BY A LIST OF ITEMS SEPERATED BY COMMAS.
+                        ; EACH ITEM CONSISTS OF A VARIABLE, AN EQUAL SIGN, AND AN EXPR.
+                        ; TBI EVALUATES THE EXPR. AND SET THE VARIABLE TO THAT VALUE.
+                        ; TBI WILL ALSO HANDLE 'LET' COMMAND WITHOUT THE WORD 'LET'.
+                        ; THIS IS DONE BY 'DEFLT'.
+                        ;
+   c513   21 00 00      REM:    LXI  H,0H                       ;*** REM ***
+   c516   3e                    DB   3EH                        ;THIS IS LIKE 'IF 0'
+                        ;
+   c517   cd 4f c2      IFF:    CALL EXPR                          ;*** IF ***
+   c51a   7c                    MOV  A,H                        ;IS THE EXPR.=0?
+   c51b   b5                    ORA  L
+   c51c   c2 98 c3              JNZ  RUNSML                     ;NO, CONTINUE
+   c51f   cd 9c c8              CALL FNDSKP                     ;YES, SKIP REST OF LINE
+   c522   d2 91 c3              JNC  RUNTSL                     ;AND RUN THE NEXT LINE
+   c525   c3 f7 c2              JMP  RSTART                     ;IF NO NEXT, RE-START
+                        ;
+   c528   2a 18 01      INPERR: LHLD STKINP                     ;*** INPERR ***
+   c52b   f9                    SPHL                            ;RESTORE OLD SP
+   c52c   e1                    POP  H                          ;AND OLD 'CURRNT'
+   c52d   22 12 01              SHLD CURRNT
+   c530   d1                    POP  D                          ;AND OLD TEXT POINTER
+   c531   d1                    POP  D                          ;REDO INPUT
+                        ;
+   c532                 INPUT:                                  ;*** INPUT ***
+   c532   d5            IP1:    PUSH D                          ;SAVE IN CASE OF ERROR
+   c533   cd b4 c8              CALL QTSTG                      ;IS NEXT ITEM A STRING?
+   c536   c3 42 c5              JMP  IP2                        ;NO
+   c539   cd 6f c2              CALL TSTV                       ;YES, BUT FOLLOWED BY A
+   c53c   da 80 c5              JC   IP4                        ;VARIABLE?   NO.
+   c53f   c3 54 c5              JMP  IP3                        ;YES.  INPUT VARIABLE
+   c542   d5            IP2:    PUSH D                          ;SAVE FOR 'PRTSTG'
+   c543   cd 6f c2              CALL TSTV                       ;MUST BE VARIABLE NOW
+   c546   da 02 c8              JC   QWHAT                      ;"WHAT?" IT IS NOT?
+   c549   1a                    LDAX D                          ;GET READY FOR 'PRTSTR'
+   c54a   4f                    MOV  C,A
+   c54b   97                    SUB  A
+   c54c   12                    STAX D
+   c54d   d1                    POP  D
+   c54e   cd a6 c8              CALL PRTSTG                     ;PRINT STRING AS PROMPT
+   c551   79                    MOV  A,C                        ;RESTORE TEXT
+   c552   1b                    DCX  D
+   c553   12                    STAX D
+   c554   d5            IP3:    PUSH D                          ;SAVE TEXT POINTER
+   c555   eb                    XCHG
+   c556   2a 12 01              LHLD CURRNT                     ;ALSO SAVE 'CURRNT'
+   c559   e5                    PUSH H
+   c55a   21 32 c5              LXI  H,IP1                      ;A NEGATIVE NUMBER
+   c55d   22 12 01              SHLD CURRNT                     ;AS A FLAG
+   c560   21 00 00              LXI  H,0H                       ;SAVE SP TOO
+   c563   39                    DAD  SP
+   c564   22 18 01              SHLD STKINP
+   c567   d5                    PUSH D                          ;OLD HL
+   c568   3e 3a                 MVI  A,3AH                      ;PRINT THIS TOO
+   c56a   cd 38 c8              CALL GETLN                      ;AND GET A LINE
+   c56d   11 37 1f              LXI  D,BUFFER                   ;POINTS TO BUFFER
+   c570   cd 4f c2              CALL EXPR                       ;EVALUATE INPUT
+   c573   00                    NOP                             ;CAN BE 'CALL ENDCHK'
+   c574   00                    NOP
+   c575   00                    NOP
+   c576   d1                    POP  D                          ;OK, GET OLD HL
+   c577   eb                    XCHG
+   c578   73                    MOV  M,E                        ;SAVE VALUE IN VAR.
+   c579   23                    INX  H
+   c57a   72                    MOV  M,D
+   c57b   e1                    POP  H                          ;GET OLD 'CURRNT'
+   c57c   22 12 01              SHLD CURRNT
+   c57f   d1                    POP  D                          ;AND OLD TEXT POINTER
+   c580   f1            IP4:    POP  PSW                        ;PURGE JUNK IN STACK
+   c581   cd 3d c2              CALL TSTC                       ;IS NEXT CH. ','?
+   c584   2c                    DB   ','
+   c585   03                    DB   IP5-$-1
+   c586   c3 32 c5              JMP  IP1                        ;YES, MORE ITEMS.
+   c589   cd 67 c2      IP5:    CALL FINISH
+                        ;
+   c58c   1a            DEFLT:  LDAX D                          ;***  DEFLT ***
+   c58d   fe 0d                 CPI  CR                         ;EMPTY LINE IS OK
+   c58f   ca 9d c5              JZ   LT1                        ;ELSE IT IS 'LET'
+                        ;
+   c592   cd d0 c7      LET:    CALL SETVAL                     ;*** LET ***
+   c595   cd 3d c2              CALL TSTC                       ;SET VALUE TO VAR.
+   c598   2c                    DB   ','
+   c599   03                    DB   LT1-$-1
+   c59a   c3 92 c5              JMP  LET                        ;ITEM BY ITEM
+   c59d   cd 67 c2      LT1:    CALL FINISH                     ;UNTIL FINISH
+                        ;
+                        ;*************************************************************
+                        ;
+                        ; *** EXPR ***
+                        ;
+                        ; 'EXPR' EVALUATES ARITHMETICAL OR LOGICAL EXPRESSIONS.
+                        ; <EXPR>::<EXPR2>
+                        ;         <EXPR2><REL.OP.><EXPR2>
+                        ; WHERE <REL.OP.> IS ONE OF THE OPERATORS IN TAB8 AND THE
+                        ; RESULT OF THESE OPERATIONS IS 1 IF TRUE AND 0 IF FALSE.
+                        ; <EXPR2>::=(+ OR -)<EXPR3>(+ OR -<EXPR3>)(....)
+                        ; WHERE () ARE OPTIONAL AND (....) ARE OPTIONAL REPEATS.
+                        ; <EXPR3>::=<EXPR4>(* OR /><EXPR4>)(....)
+                        ; <EXPR4>::=<VARIABLE>
+                        ;           <FUNCTION>
+                        ;           (<EXPR>)
+                        ; <EXPR> IS RECURSIVE SO THAT VARIABLE '@' CAN HAVE AN <EXPR>
+                        ; AS INDEX, FUNCTIONS CAN HAVE AN <EXPR> AS ARGUMENTS, AND
+                        ; <EXPR4> CAN BE AN <EXPR> IN PARANTHESE.
+                        ;
+                        ;EXPR:  CALL EXPR2                      ;THIS IS AT LOC. 18
+                        ;       PUSH H                          ;SAVE <EXPR2> VALUE
+   c5a0   21 15 cb      EXPR1:  LXI  H,TAB8-1                   ;LOOKUP REL.OP.
+   c5a3   c3 cb ce              JMP  EXEC                       ;GO DO IT
+   c5a6   cd cf c5      XP11:   CALL XP18                       ;REL.OP.">="
+   c5a9   d8                    RC                              ;NO, RETURN HL=0
+   c5aa   6f                    MOV  L,A                        ;YES, RETURN HL=1
+   c5ab   c9                    RET
+   c5ac   cd cf c5      XP12:   CALL XP18                       ;REL.OP."#"
+   c5af   c8                    RZ                              ;FALSE, RETURN HL=0
+   c5b0   6f                    MOV  L,A                        ;TRUE, RETURN HL=1
+   c5b1   c9                    RET
+   c5b2   cd cf c5      XP13:   CALL XP18                       ;REL.OP.">"
+   c5b5   c8                    RZ                              ;FALSE
+   c5b6   d8                    RC                              ;ALSO FALSE, HL=0
+   c5b7   6f                    MOV  L,A                        ;TRUE, HL=1
+   c5b8   c9                    RET
+   c5b9   cd cf c5      XP14:   CALL XP18                       ;REL.OP."<="
+   c5bc   6f                    MOV  L,A                        ;SET HL=1
+   c5bd   c8                    RZ                              ;REL. TRUE, RETURN
+   c5be   d8                    RC
+   c5bf   6c                    MOV  L,H                        ;ELSE SET HL=0
+   c5c0   c9                    RET
+   c5c1   cd cf c5      XP15:   CALL XP18                       ;REL.OP."="
+   c5c4   c0                    RNZ                             ;FALSE, RETURN HL=0
+   c5c5   6f                    MOV  L,A                        ;ELSE SET HL=1
+   c5c6   c9                    RET
+   c5c7   cd cf c5      XP16:   CALL XP18                       ;REL.OP."<"
+   c5ca   d0                    RNC                             ;FALSE, RETURN HL=0
+   c5cb   6f                    MOV  L,A                        ;ELSE SET HL=1
+   c5cc   c9                    RET
+   c5cd   e1            XP17:   POP  H                          ;NOT .REL.OP
+   c5ce   c9                    RET                             ;RETURN HL=<EXPR2>
+   c5cf   79            XP18:   MOV  A,C                        ;SUBROUTINE FOR ALL
+   c5d0   e1                    POP  H                          ;REL.OP.'S
+   c5d1   c1                    POP  B
+   c5d2   e5                    PUSH H                          ;REVERSE TOP OF STACK
+   c5d3   c5                    PUSH B
+   c5d4   4f                    MOV  C,A
+   c5d5   cd e4 c5              CALL EXPR2                      ;GET 2ND <EXPR2>
+   c5d8   eb                    XCHG                            ;VALUE IN DE NOW
+   c5d9   e3                    XTHL                            ;1ST <EXPR2> IN HL
+   c5da   cd c6 c7              CALL CKHLDE                     ;COMPARE 1ST WITH 2ND
+   c5dd   d1                    POP  D                          ;RESTORE TEXT POINTER
+   c5de   21 00 00              LXI  H,0H                       ;SET HL=0, A=1
+   c5e1   3e 01                 MVI  A,1
+   c5e3   c9                    RET
+                        ;
+   c5e4   cd 3d c2      EXPR2:  CALL TSTC                       ;NEGATIVE SIGN?
+   c5e7   2d                    DB   '-'
+   c5e8   06                    DB   XP21-$-1
+   c5e9   21 00 00              LXI  H,0H                       ;YES, FAKE '0-'
+   c5ec   c3 16 c6              JMP  XP26                       ;TREAT LIKE SUBTRACT
+   c5ef   cd 3d c2      XP21:   CALL TSTC                       ;POSITIVE SIGN? IGNORE
+   c5f2   2b                    DB   '+'
+   c5f3   00                    DB   XP22-$-1
+   c5f4   cd 20 c6      XP22:   CALL EXPR3                      ;1ST <EXPR3>
+   c5f7   cd 3d c2      XP23:   CALL TSTC                       ;ADD?
+   c5fa   2b                    DB   '+'
+   c5fb   15                    DB   XP25-$-1
+   c5fc   e5                    PUSH H                          ;YES, SAVE VALUE
+   c5fd   cd 20 c6              CALL EXPR3                      ;GET 2ND <EXPR3>
+   c600   eb            XP24:   XCHG                            ;2ND IN DE
+   c601   e3                    XTHL                            ;1ST IN HL
+   c602   7c                    MOV  A,H                        ;COMPARE SIGN
+   c603   aa                    XRA  D
+   c604   7a                    MOV  A,D
+   c605   19                    DAD  D
+   c606   d1                    POP  D                          ;RESTORE TEXT POINTER
+   c607   fa f7 c5              JM   XP23                       ;1ST AND 2ND SIGN DIFFER
+   c60a   ac                    XRA  H                          ;1ST AND 2ND SIGN EQUAL
+   c60b   f2 f7 c5              JP   XP23                       ;SO IS RESULT
+   c60e   c3 dc c2              JMP  QHOW                       ;ELSE WE HAVE OVERFLOW
+   c611   cd 3d c2      XP25:   CALL TSTC                       ;SUBTRACT?
+   c614   2d                    DB   '-'
+   c615   92                    DB   XP42-$-1
+   c616   e5            XP26:   PUSH H                          ;YES, SAVE 1ST <EXPR3>
+   c617   cd 20 c6              CALL EXPR3                      ;GET 2ND <EXPR3>
+   c61a   cd b4 c7              CALL CHGSGN                     ;NEGATE
+   c61d   c3 00 c6              JMP  XP24                       ;AND ADD THEM
+                        ;
+   c620   cd 84 c6      EXPR3:  CALL EXPR4                      ;GET 1ST <EXPR4>
+   c623   cd 3d c2      XP31:   CALL TSTC                       ;MULTIPLY?
+   c626   2a                    DB   '*'
+   c627   2d                    DB   XP34-$-1
+   c628   e5                    PUSH H                          ;YES, SAVE 1ST
+   c629   cd 84 c6              CALL EXPR4                      ;AND GET 2ND <EXPR4>
+   c62c   06 00                 MVI  B,0H                       ;CLEAR B FOR SIGN
+   c62e   cd b1 c7              CALL CHKSGN                     ;CHECK SIGN
+   c631   e3                    XTHL                            ;1ST IN HL
+   c632   cd b1 c7              CALL CHKSGN                     ;CHECK SIGN OF 1ST
+   c635   eb                    XCHG
+   c636   e3                    XTHL
+   c637   7c                    MOV  A,H                        ;IS HL > 255 ?
+   c638   b7                    ORA  A
+   c639   ca 42 c6              JZ   XP32                       ;NO
+   c63c   7a                    MOV  A,D                        ;YES, HOW ABOUT DE
+   c63d   b2                    ORA  D
+   c63e   eb                    XCHG                            ;PUT SMALLER IN HL
+   c63f   c2 dd c2              JNZ  AHOW                       ;ALSO >, WILL OVERFLOW
+   c642   7d            XP32:   MOV  A,L                        ;THIS IS DUMB
+   c643   21 00 00              LXI  H,0H                       ;CLEAR RESULT
+   c646   b7                    ORA  A                          ;ADD AND COUNT
+   c647   ca 76 c6              JZ   XP35
+   c64a   19            XP33:   DAD  D
+   c64b   da dd c2              JC   AHOW                       ;OVERFLOW
+   c64e   3d                    DCR  A
+   c64f   c2 4a c6              JNZ  XP33
+   c652   c3 76 c6              JMP  XP35                       ;FINISHED
+   c655   cd 3d c2      XP34:   CALL TSTC                       ;DIVIDE?
+   c658   2f                    DB   '/'
+   c659   4e                    DB   XP42-$-1
+   c65a   e5                    PUSH H                          ;YES, SAVE 1ST <EXPR4>
+   c65b   cd 84 c6              CALL EXPR4                      ;AND GET THE SECOND ONE
+   c65e   06 00                 MVI  B,0H                       ;CLEAR B FOR SIGN
+   c660   cd b1 c7              CALL CHKSGN                     ;CHECK SIGN OF 2ND
+   c663   e3                    XTHL                            ;GET 1ST IN HL
+   c664   cd b1 c7              CALL CHKSGN                     ;CHECK SIGN OF 1ST
+   c667   eb                    XCHG
+   c668   e3                    XTHL
+   c669   eb                    XCHG
+   c66a   7a                    MOV  A,D                        ;DIVIDE BY 0?
+   c66b   b3                    ORA  E
+   c66c   ca dd c2              JZ   AHOW                       ;SAY "HOW?"
+   c66f   c5                    PUSH B                          ;ELSE SAVE SIGN
+   c670   cd 94 c7              CALL DIVIDE                     ;USE SUBROUTINE
+   c673   60                    MOV  H,B                        ;RESULT IN HL NOW
+   c674   69                    MOV  L,C
+   c675   c1                    POP  B                          ;GET SIGN BACK
+   c676   d1            XP35:   POP  D                          ;AND TEXT POINTER
+   c677   7c                    MOV  A,H                        ;HL MUST BE +
+   c678   b7                    ORA  A
+   c679   fa dc c2              JM   QHOW                       ;ELSE IT IS OVERFLOW
+   c67c   78                    MOV  A,B
+   c67d   b7                    ORA  A
+   c67e   fc b4 c7              CM   CHGSGN                     ;CHANGE SIGN IF NEEDED
+   c681   c3 23 c6              JMP  XP31                       ;LOOK FOR MORE TERMS
+                        ;
+   c684   21 e5 ca      EXPR4:  LXI  H,TAB4-1                   ;FIND FUNCTION IN TAB4
+   c687   c3 cb ce              JMP  EXEC                       ;AND GO DO IT
+   c68a   cd 6f c2      XP40:   CALL TSTV                       ;NO, NOT A FUNCTION
+   c68d   da 95 c6              JC   XP41                       ;NOR A VARIABLE
+   c690   7e                    MOV  A,M                        ;VARIABLE
+   c691   23                    INX  H
+   c692   66                    MOV  H,M                        ;VALUE IN HL
+   c693   6f                    MOV  L,A
+   c694   c9                    RET
+   c695   cd b2 c2      XP41:   CALL TSTNUM                     ;OR IS IT A NUMBER
+   c698   78                    MOV  A,B                        ;# OF DIGIT
+   c699   b7                    ORA  A
+   c69a   c0                    RNZ                             ;OK
+   c69b   cd 3d c2      PARN:   CALL TSTC
+   c69e   28                    DB   '('
+   c69f   09                    DB   XP43-$-1
+   c6a0   cd 4f c2              CALL EXPR                          ;"(EXPR)"
+   c6a3   cd 3d c2              CALL TSTC
+   c6a6   29                    DB   ')'
+   c6a7   01                    DB   XP43-$-1
+   c6a8   c9            XP42:   RET
+   c6a9   c3 02 c8      XP43:   JMP  QWHAT                      ;ELSE SAY: "WHAT?"
+                        ;
+   c6ac   cd 9b c6      RND:    CALL PARN                       ;*** RND(EXPR) ***
+   c6af   7c                    MOV  A,H                        ;EXPR MUST BE +
+   c6b0   b7                    ORA  A
+   c6b1   fa dc c2              JM   QHOW
+   c6b4   b5                    ORA  L                          ;AND NON-ZERO
+   c6b5   ca dc c2              JZ   QHOW
+   c6b8   d5                    PUSH D                          ;SAVE BOTH
+   c6b9   e5                    PUSH H
+   c6ba   2a 24 01              LHLD RANPNT                     ;GET MEMORY AS RANDOM
+   c6bd   11 00 00              LXI  D,LSTROM                   ;NUMBER
+   c6c0   cd 57 c2              CALL COMP
+   c6c3   da c9 c6              JC   RA1                        ;WRAP AROUND IF LAST
+   c6c6   21 07 c0              LXI  H,START
+   c6c9   5e            RA1:    MOV  E,M
+   c6ca   23                    INX  H
+   c6cb   56                    MOV  D,M
+   c6cc   22 24 01              SHLD RANPNT
+   c6cf   e1                    POP  H
+   c6d0   eb                    XCHG
+   c6d1   c5                    PUSH B
+   c6d2   cd 94 c7              CALL DIVIDE                     ;RND(N)=MOD(M,N)+1
+   c6d5   c1                    POP  B
+   c6d6   d1                    POP  D
+   c6d7   23                    INX  H
+   c6d8   c9                    RET
+                        ;
+   c6d9   cd 9b c6      ABS:    CALL PARN                       ;*** ABS(EXPR) ***
+   c6dc   1b                    DCX  D
+   c6dd   cd b1 c7              CALL CHKSGN                     ;CHECK SIGN
+   c6e0   13                    INX  D
+   c6e1   c9                    RET
+                        ;
+   c6e2   2a 26 01      SIZE:   LHLD TXTUNF                     ;*** SIZE ***
+   c6e5   d5                    PUSH D                          ;GET THE NUMBER OF FREE
+   c6e6   eb                    XCHG                            ;BYTES BETWEEN 'TXTUNF'
+   c6e7   21 00 1f              LXI  H,VARBGN                   ;AND 'VARBGN'
+   c6ea   cd aa c7              CALL SUBDE
+   c6ed   d1                    POP  D
+   c6ee   c9                    RET
+                                
+                        ;*
+                        ;*********************************************************
+                        ;*
+                        ;*   *** OUT *** INP *** WAIT *** POKE *** PEEK *** & USR
+                        ;*
+                        ;*  OUT I,J(,K,L)
+                        ;*
+                        ;*  OUTPUTS EXPRESSION 'J' TO PORT 'I', AND MAY BE REPEATED
+                        ;*  AS IN DATA 'L' TO PORT 'K' AS MANY TIMES AS NEEDED
+                        ;*  THIS COMMAND MODIFIES ;*  THIS COMMAND MODIFIES 
+                        ;*  THIS COMMAND MODIFY'S A SMALL SECTION OF CODE LOCATED 
+                        ;*  JUST ABOVE ADDRESS 2K
+                        ;*
+                        ;*  INP (I)
+                        ;*
+                        ;*  THIS FUNCTION RETURNS DATA READ FROM INPUT PORT 'I' AS
+                        ;*  IT'S VALUE.
+                        ;*  IT ALSO MODIFIES CODE JUST ABOVE 2K.
+                        ;*
+                        ;*  WAIT I,J,K
+                        ;*
+                        ;*  THIS COMMAND READS THE STATUS OF PORT 'I', EXCLUSIVE OR'S
+                        ;*  THE RESULT WITH 'K' IF THERE IS ONE, OR IF NOT WITH 0, 
+                        ;*  AND'S WITH 'J' AND RETURNS WHEN THE RESULT IS NONZERO.
+                        ;*  ITS MODIFIED CODE IS ALSO ABOVE 2K.
+                        ;*
+                        ;*  POKE I,J(,K,L)
+                        ;*
+                        ;*  THIS COMMAND WORKS LIKE OUT EXCEPT THAT IT PUTS DATA 'J'
+                        ;*  INTO MEMORY LOCATION 'I'.
+                        ;*
+                        ;*  PEEK (I)
+                        ;*
+                        ;*  THIS FUNCTION WORKS LIKE INP EXCEPT IT GETS IT'S VALUE
+                        ;*  FROM MEMORY LOCATION 'I'.
+                        ;*
+                        ;*  USR (I(,J))
+                        ;*
+                        ;*  USR CALLS A MACHINE LANGUAGE SUBROUTINE AT LOCATION 'I'
+                        ;*  IF THE OPTIONAL PARAMETER 'J' IS USED ITS VALUE IS PASSED
+                        ;*  IN H&L.  THE VALUE OF THE FUNCTION SHOULD BE RETURNED IN H&L.
+                        ;*
+                        ;************************************************************
+                        ;*
+   c6ef   cd 4f c2      OUTCMD CALL EXPR ;RST  3 
+   c6f2   7d                   MOV  A,L
+   c6f3   32 02 01             STA  OUTIO + 1
+   c6f6   cd 3d c2             CALL TSTC ;RST  1
+   c6f9   2c                   DB   ','
+   c6fa   2f                   DB   2FH
+   c6fb   cd 4f c2             CALL EXPR ;RST  3
+   c6fe   7d                   MOV  A,L
+   c6ff   cd 01 01             CALL OUTIO
+   c702   cd 3d c2             CALL TSTC ;RST  1
+   c705   2c                   DB   ','
+   c706   03                   DB   03H
+   c707   c3 ef c6             JMP  OUTCMD 
+   c70a   cd 67 c2             CALL FINISH ;RST 6
+   c70d   cd 4f c2      WAITCM CALL EXPR ;RST  3
+   c710   7d                   MOV  A,L
+   c711   32 05 01             STA  WAITIO + 1
+   c714   cd 3d c2             CALL TSTC ;RST  1
+   c717   2c                   DB   ','
+   c718   1b                   DB   1BH
+   c719   cd 4f c2             CALL EXPR ;RST  3
+   c71c   e5                   PUSH H
+   c71d   cd 3d c2             CALL TSTC ;RST  1
+   c720   2c                   DB   ','
+   c721   07                   DB   7H
+   c722   cd 4f c2             CALL EXPR ;RST  3
+   c725   7d                   MOV  A,L
+   c726   e1                   POP  H
+   c727   67                   MOV  H,A
+   c728   c3 2a c7             JMP  $ + 2
+   c72b   26 00                MVI  H,0
+   c72d   c3 04 01             JMP  WAITIO
+   c730   cd 9b c6      INP    CALL PARN
+   c733   7d                   MOV  A,L
+   c734   32 0f 01             STA  INPIO + 1
+   c737   26 00                MVI  H,0
+   c739   c3 0e 01             JMP  INPIO
+   c73c   c3 02 c8             JMP  QWHAT       
+   c73f   cd 4f c2      POKE   CALL EXPR ;RST  3
+   c742   e5                   PUSH H
+   c743   cd 3d c2             CALL TSTC ;RST  1
+   c746   2c                   DB   ','
+   c747   12                   DB   12H
+   c748   cd 4f c2             CALL EXPR ;RST  3
+   c74b   7d                   MOV  A,L
+   c74c   e1                   POP  H
+   c74d   77                   MOV  M,A
+   c74e   cd 3d c2             CALL TSTC ;RST  1
+   c751   2c 03                DB   ',',03H
+   c753   c3 3f c7             JMP  POKE
+   c756   cd 67 c2             CALL FINISH ;RST 6
+   c759   cd 9b c6      PEEK   CALL PARN
+   c75c   6e                   MOV  L,M
+   c75d   26 00                MVI  H,0
+   c75f   c9                   RET
+   c760   c3 02 c8             JMP  QWHAT
+   c763   c5            USR    PUSH B
+   c764   cd 3d c2             CALL TSTC ;RST  1
+   c767   28 1c                DB   '(',28D    ;QWHAT
+   c769   cd 4f c2             CALL EXPR ;RST  3          ;EXPR
+   c76c   cd 3d c2             CALL TSTC ;RST  1
+   c76f   29 07                DB   ')',7      ;PASPARM
+   c771   d5                   PUSH D
+   c772   11 8e c7             LXI  D,USRET
+   c775   d5                   PUSH D
+   c776   e5                   PUSH H
+   c777   c9                   RET             ;CALL USR ROUTINE
+   c778   cd 3d c2      PASPRM CALL TSTC ;RST  1
+   c77b   2c 0e                DB   ',',14D
+   c77d   e5                   PUSH H
+   c77e   cd 4f c2             CALL EXPR ;RST  3
+   c781   cd 3d c2             CALL TSTC ;RST  1
+   c784   29 09                DB   ')',9
+   c786   c1                   POP  B
+   c787   d5                   PUSH D
+   c788   11 8e c7             LXI  D,USRET
+   c78b   d5                   PUSH D
+   c78c   c5                   PUSH B
+   c78d   c9                   RET             ;CALL USR ROUTINE
+   c78e   d1            USRET  POP  D
+   c78f   c1                   POP  B
+   c790   c9                   RET
+   c791   c3 02 c8             JMP  QWHAT
+                                       
+                        ;
+                        ;*************************************************************
+                        ;
+                        ; *** DIVIDE *** SUBDE *** CHKSGN *** CHGSGN *** & CKHLDE ***
+                        ;
+                        ; 'DIVIDE' DIVIDES HL BY DE, RESULT IN BC, REMAINDER IN HL
+                        ;
+                        ; 'SUBDE' SUBSTRACTS DE FROM HL
+                        ;
+                        ; 'CHKSGN' CHECKS SIGN OF HL.  IF +, NO CHANGE.  IF -, CHANGE
+                        ; SIGN AND FLIP SIGN OF B.
+                        ;
+                        ; 'CHGSGN' CHECKS SIGN N OF HL AND B UNCONDITIONALLY.
+                        ;
+                        ; 'CKHLDE' CHECKS SIGN OF HL AND DE.  IF DIFFERENT, HL AND DE
+                        ; ARE INTERCHANGED.  IF SAME SIGN, NOT INTERCHANGED.  EITHER
+                        ; CASE, HL DE ARE THEN COMPARED TO SET THE FLAGS.
+                        ;
+   c794   e5            DIVIDE: PUSH H                          ;*** DIVIDE ***
+   c795   6c                    MOV  L,H                        ;DIVIDE H BY DE
+   c796   26 00                 MVI  H,0
+   c798   cd 9f c7              CALL DV1
+   c79b   41                    MOV  B,C                        ;SAVE RESULT IN B
+   c79c   7d                    MOV  A,L                        ;(REMINDER+L)/DE
+   c79d   e1                    POP  H
+   c79e   67                    MOV  H,A
+   c79f   0e ff         DV1:    MVI  C,0FFH                     ;RESULT IN C
+   c7a1   0c            DV2:    INR  C                          ;DUMB ROUTINE
+   c7a2   cd aa c7              CALL SUBDE                      ;DIVIDE BY SUBTRACT
+   c7a5   d2 a1 c7              JNC  DV2                        ;AND COUNT
+   c7a8   19                    DAD  D
+   c7a9   c9                    RET
+                        ;
+   c7aa   7d            SUBDE:  MOV  A,L                        ;*** SUBDE ***
+   c7ab   93                    SUB  E                          ;SUBSTRACT DE FROM
+   c7ac   6f                    MOV  L,A                        ;HL
+   c7ad   7c                    MOV  A,H
+   c7ae   9a                    SBB  D
+   c7af   67                    MOV  H,A
+   c7b0   c9                    RET
+                        ;
+   c7b1   7c            CHKSGN: MOV  A,H                        ;*** CHKSGN ***
+   c7b2   b7                    ORA  A                          ;CHECK SIGN OF HL
+   c7b3   f0                    RP                              ;IF -, CHANGE SIGN
+                        ;
+   c7b4   7c            CHGSGN: MOV  A,H                        ;*** CHGSGN ***
+   c7b5   f5                    PUSH PSW
+   c7b6   2f                    CMA                             ;CHANGE SIGN OF HL
+   c7b7   67                    MOV  H,A
+   c7b8   7d                    MOV  A,L
+   c7b9   2f                    CMA
+   c7ba   6f                    MOV  L,A
+   c7bb   23                    INX  H
+   c7bc   f1                    POP  PSW
+   c7bd   ac                    XRA  H
+   c7be   f2 dc c2              JP   QHOW
+   c7c1   78                    MOV  A,B                        ;AND ALSO FLIP B
+   c7c2   ee 80                 XRI  80H
+   c7c4   47                    MOV  B,A
+   c7c5   c9                    RET
+                        ;
+   c7c6   7c            CKHLDE: MOV  A,H
+   c7c7   aa                    XRA  D                          ;SAME SIGN?
+   c7c8   f2 cc c7              JP   CK1                        ;YES, COMPARE
+   c7cb   eb                    XCHG                            ;NO, XCH AND COMP
+   c7cc   cd 57 c2      CK1:    CALL COMP
+   c7cf   c9                    RET
+                        ;
+                        ;*************************************************************
+                        ;
+                        ; *** SETVAL *** FIN *** ENDCHK *** & ERROR (& FRIENDS) ***
+                        ;
+                        ; "SETVAL" EXPECTS A VARIABLE, FOLLOWED BY AN EQUAL SIGN AND
+                        ; THEN AN EXPR.  IT EVALUATES THE EXPR. AND SET THE VARIABLE
+                        ; TO THAT VALUE.
+                        ;
+                        ; "FIN" CHECKS THE END OF A COMMAND.  IF IT ENDED WITH ";",
+                        ; EXECUTION CONTINUES.  IF IT ENDED WITH A CR, IT FINDS THE
+                        ; NEXT LINE AND CONTINUE FROM THERE.
+                        ;
+                        ; "ENDCHK" CHECKS IF A COMMAND IS ENDED WITH CR.  THIS IS
+                        ; REQUIRED IN CERTAIN COMMANDS.  (GOTO, RETURN, AND STOP ETC.)
+                        ;
+                        ; "ERROR" PRINTS THE STRING POINTED BY DE (AND ENDS WITH CR).
+                        ; IT THEN PRINTS THE LINE POINTED BY 'CURRNT' WITH A "?"
+                        ; INSERTED AT WHERE THE OLD TEXT POINTER (SHOULD BE ON TOP
+                        ; OF THE STACK) POINTS TO.  EXECUTION OF TB IS STOPPED
+                        ; AND TBI IS RESTARTED.  HOWEVER, IF 'CURRNT' -> ZERO
+                        ; (INDICATING A DIRECT COMMAND), THE DIRECT COMMAND IS NOT
+                        ; PRINTED.  AND IF 'CURRNT' -> NEGATIVE # (INDICATING 'INPUT'
+                        ; COMMAND), THE INPUT LINE IS NOT PRINTED AND EXECUTION IS
+                        ; NOT TERMINATED BUT CONTINUED AT 'INPERR'.
+                        ;
+                        ; RELATED TO 'ERROR' ARE THE FOLLOWING:
+                        ; 'QWHAT' SAVES TEXT POINTER IN STACK AND GET MESSAGE "WHAT?"
+                        ; 'AWHAT' JUST GET MESSAGE "WHAT?" AND JUMP TO 'ERROR'.
+                        ; 'QSORRY' AND 'ASORRY' DO SAME KIND OF THING.
+                        ; 'AHOW' AND 'AHOW' IN THE ZERO PAGE SECTION ALSO DO THIS.
+                        ;
+   c7d0   cd 6f c2      SETVAL: CALL TSTV                       ;*** SETVAL ***
+   c7d3   da 02 c8              JC   QWHAT                      ;"WHAT?" NO VARIABLE
+   c7d6   e5                    PUSH H                          ;SAVE ADDRESS OF VAR.
+   c7d7   cd 3d c2              CALL TSTC                       ;PASS "=" SIGN
+   c7da   3d                    DB   '='
+   c7db   0a                    DB   SV1-$-1
+   c7dc   cd 4f c2              CALL EXPR                       ;EVALUATE EXPR.
+   c7df   44                    MOV  B,H                        ;VALUE IS IN BC NOW
+   c7e0   4d                    MOV  C,L
+   c7e1   e1                    POP  H                          ;GET ADDRESS
+   c7e2   71                    MOV  M,C                        ;SAVE VALUE
+   c7e3   23                    INX  H
+   c7e4   70                    MOV  M,B
+   c7e5   c9                    RET
+   c7e6   c3 02 c8      SV1:    JMP  QWHAT                      ;NO "=" SIGN
+                        ;
+   c7e9   cd 3d c2      FIN:    CALL TSTC                       ;*** FIN ***
+   c7ec   3b                    DB   3BH
+   c7ed   04                    DB   FI1-$-1
+   c7ee   f1                    POP  PSW                        ;";", PURGE RET. ADDR.
+   c7ef   c3 98 c3              JMP  RUNSML                     ;CONTINUE SAME LINE
+   c7f2   cd 3d c2      FI1:    CALL TSTC                       ;NOT ";", IS IT CR?
+   c7f5   0d                    DB   CR
+   c7f6   04                    DB   FI2-$-1
+   c7f7   f1                    POP  PSW                        ;YES, PURGE RET. ADDR.
+   c7f8   c3 88 c3              JMP  RUNNXL                     ;RUN NEXT LINE
+   c7fb   c9            FI2:    RET                             ;ELSE RETURN TO CALLER
+                        ;
+   c7fc   cd 5f c2      ENDCHK: CALL IGNBLK                          ;*** ENDCHK ***
+   c7ff   fe 0d                 CPI  CR                         ;END WITH CR?
+   c801   c8                    RZ                              ;OK, ELSE SAY: "WHAT?"
+                        ;
+   c802   d5            QWHAT:  PUSH D                          ;*** QWHAT ***
+   c803   11 eb c2      AWHAT:  LXI  D,WHAT                     ;*** AWHAT ***
+   c806   97            ERROR:  SUB  A                          ;*** ERROR ***
+   c807   cd a6 c8              CALL PRTSTG                     ;PRINT 'WHAT?', 'HOW?'
+   c80a   d1                    POP  D                          ;OR 'SORRY'
+   c80b   1a                    LDAX D                          ;SAVE THE CHARACTER
+   c80c   f5                    PUSH PSW                        ;AT WHERE OLD DE ->
+   c80d   97                    SUB  A                          ;AND PUT A 0 THERE
+   c80e   12                    STAX D
+   c80f   2a 12 01              LHLD CURRNT                     ;GET CURRENT LINE #
+   c812   e5                    PUSH H
+   c813   7e                    MOV  A,M                        ;CHECK THE VALUE
+   c814   23                    INX  H
+   c815   b6                    ORA  M
+   c816   d1                    POP  D
+   c817   ca f7 c2              JZ   RSTART                     ;IF ZERO, JUST RESTART
+   c81a   7e                    MOV  A,M                        ;IF NEGATIVE,
+   c81b   b7                    ORA  A
+   c81c   fa 28 c5              JM   INPERR                     ;REDO INPUT
+   c81f   cd 28 c9              CALL PRTLN                      ;ELSE PRINT THE LINE
+   c822   1b                    DCX  D                          ;UPTO WHERE THE 0 IS
+   c823   f1                    POP  PSW                        ;RESTORE THE CHARACTER
+   c824   12                    STAX D
+   c825   3e 3f                 MVI  A,3FH                      ;PRINT A "?"
+   c827   cd 47 c2              CALL OUTC
+   c82a   97                    SUB  A                          ;AND THE REST OF THE
+   c82b   cd a6 c8              CALL PRTSTG                     ;LINE
+   c82e   c3 f7 c2              JMP  RSTART                     ;THEN RESTART
+                        ;
+   c831   d5            QSORRY: PUSH D                          ;*** QSORRY ***
+   c832   11 f1 c2      ASORRY: LXI  D,SORRY                    ;*** ASORRY ***
+   c835   c3 06 c8              JMP  ERROR
+                        ;
+                        ;*************************************************************
+                        ;
+                        ; *** GETLN *** FNDLN (& FRIENDS) ***
+                        ;
+                        ; 'GETLN' READS A INPUT LINE INTO 'BUFFER'.  IT FIRST PROMPT
+                        ; THE CHARACTER IN A (GIVEN BY THE CALLER), THEN IT FILLS
+                        ; THE BUFFER AND ECHOS.  IT IGNORES LF'S AND NULLS, BUT STILL
+                        ; ECHOS THEM BACK.  RUB-OUT IS USED TO CAUSE IT TO DELETE
+                        ; THE LAST CHARACTER (IF THERE IS ONE), AND ALT-MOD IS USED TO
+                        ; CAUSE IT TO DELETE THE WHOLE LINE AND START IT ALL OVER.
+                        ; CR SIGNALS THE END OF A LINE, AND CAUSE 'GETLN' TO RETURN.
+                        ;
+                        ; 'FNDLN' FINDS A LINE WITH A GIVEN LINE # (IN HL) IN THE
+                        ; TEXT SAVE AREA.  DE IS USED AS THE TEXT POINTER.  IF THE
+                        ; LINE IS FOUND, DE WILL POINT TO THE BEGINNING OF THAT LINE
+                        ; (I.E., THE LOW BYTE OF THE LINE #), AND FLAGS ARE NC & Z.
+                        ; IF THAT LINE IS NOT THERE AND A LINE WITH A HIGHER LINE #
+                        ; IS FOUND, DE POINTS TO THERE AND FLAGS ARE NC & NZ.  IF
+                        ; WE REACHED THE END OF TEXT SAVE AREA AND CANNOT FIND THE
+                        ; LINE, FLAGS ARE C & NZ.
+                        ; 'FNDLN' WILL INITIALIZE DE TO THE BEGINNING OF THE TEXT SAVE
+                        ; AREA TO START THE SEARCH.  SOME OTHER ENTRIES OF THIS
+                        ; ROUTINE WILL NOT INITIALIZE DE AND DO THE SEARCH.
+                        ; 'FNDLNP' WILL START WITH DE AND SEARCH FOR THE LINE #.
+                        ; 'FNDNXT' WILL BUMP DE BY 2, FIND A CR AND THEN START SEARCH.
+                        ; 'FNDSKP' USE DE TO FIND A CR, AND THEN START SEARCH.
+                        ;
+   c838   cd 47 c2      GETLN:  CALL OUTC                          ;*** GETLN ***
+   c83b   11 37 1f              LXI  D,BUFFER                   ;PROMPT AND INIT.
+   c83e   cd 2b ca      GL1:    CALL CHKIO                      ;CHECK KEYBOARD
+   c841   ca 3e c8              JZ   GL1                        ;NO INPUT, WAIT
+   c844   fe 7f                 CPI  7FH                        ;DELETE LAST CHARACTER?
+   c846   ca 65 c8              JZ   GL3                        ;YES
+   c849   cd 47 c2              CALL OUTC                          ;INPUT, ECHO BACK
+   c84c   fe 0a                 CPI  0AH                        ;IGNORE LF
+   c84e   ca 3e c8              JZ   GL1
+   c851   b7                    ORA  A                          ;IGNORE NULL
+   c852   ca 3e c8              JZ   GL1
+   c855   fe 7d                 CPI  7DH                        ;DELETE THE WHOLE LINE?
+   c857   ca 74 c8              JZ   GL4                        ;YES
+   c85a   12                    STAX D                          ;ELSE SAVE INPUT
+   c85b   13                    INX  D                          ;AND BUMP POINTER
+   c85c   fe 0d                 CPI  0DH                        ;WAS IT CR?
+   c85e   c8                    RZ                              ;YES, END OF LINE
+   c85f   7b                    MOV  A,E                        ;ELSE MORE FREE ROOM?
+   c860   fe 77                 CPI  BUFEND AND 0FFH
+   c862   c2 3e c8              JNZ  GL1                        ;YES, GET NEXT INPUT
+   c865   7b            GL3:    MOV  A,E                        ;DELETE LAST CHARACTER
+   c866   fe 37                 CPI  BUFFER AND 0FFH            ;BUT DO WE HAVE ANY?
+   c868   ca 74 c8              JZ   GL4                        ;NO, REDO WHOLE LINE
+   c86b   1b                    DCX  D                          ;YES, BACKUP POINTER
+   c86c   3e 5c                 MVI  A,5CH                      ;AND ECHO A BACK-SLASH
+   c86e   cd 47 c2              CALL OUTC
+   c871   c3 3e c8              JMP  GL1                        ;GO GET NEXT INPUT
+   c874   cd 45 c2      GL4:    CALL CRLF                       ;REDO ENTIRE LINE
+   c877   3e 5e                 MVI  A,05EH                     ;CR, LF AND UP-ARROW
+   c879   c3 38 c8              JMP  GETLN
+                        ;
+   c87c   7c            FNDLN:  MOV  A,H                        ;*** FNDLN ***
+   c87d   b7                    ORA  A                          ;CHECK SIGN OF HL
+   c87e   fa dc c2              JM   QHOW                       ;IT CANNOT BE -
+   c881   11 28 01              LXI  D,TXTBGN                   ;INIT TEXT POINTER
+                        ;
+   c884                 FNDLP:                                  ;*** FDLNP ***
+   c884   e5            FL1:    PUSH H                          ;SAVE LINE #
+   c885   2a 26 01              LHLD TXTUNF                     ;CHECK IF WE PASSED END
+   c888   2b                    DCX  H
+   c889   cd 57 c2              CALL COMP
+   c88c   e1                    POP  H                          ;GET LINE # BACK
+   c88d   d8                    RC                              ;C,NZ PASSED END
+   c88e   1a                    LDAX D                          ;WE DID NOT, GET BYTE 1
+   c88f   95                    SUB  L                          ;IS THIS THE LINE?
+   c890   47                    MOV  B,A                        ;COMPARE LOW ORDER
+   c891   13                    INX  D
+   c892   1a                    LDAX D                          ;GET BYTE 2
+   c893   9c                    SBB  H                          ;COMPARE HIGH ORDER
+   c894   da 9b c8              JC   FL2                        ;NO, NOT THERE YET
+   c897   1b                    DCX  D                          ;ELSE WE EITHER FOUND
+   c898   b0                    ORA  B                          ;IT, OR IT IS NOT THERE
+   c899   c9                    RET                             ;NC,Z:FOUND, NC,NZ:NO
+                        ;
+   c89a                 FNDNXT:                                 ;*** FNDNXT ***
+   c89a   13                    INX  D                          ;FIND NEXT LINE
+   c89b   13            FL2:    INX  D                          ;JUST PASSED BYTE 1 & 2
+                        ;
+   c89c   1a            FNDSKP: LDAX D                          ;*** FNDSKP ***
+   c89d   fe 0d                 CPI  CR                         ;TRY TO FIND CR
+   c89f   c2 9b c8              JNZ  FL2                        ;KEEP LOOKING
+   c8a2   13                    INX  D                          ;FOUND CR, SKIP OVER
+   c8a3   c3 84 c8              JMP  FL1                        ;CHECK IF END OF TEXT
+                        ;
+                        ;*************************************************************
+                        ;
+                        ; *** PRTSTG *** QTSTG *** PRTNUM *** & PRTLN ***
+                        ;
+                        ; 'PRTSTG' PRINTS A STRING POINTED BY DE.  IT STOPS PRINTING
+                        ; AND RETURNS TO CALLER WHEN EITHER A CR IS PRINTED OR WHEN
+                        ; THE NEXT BYTE IS THE SAME AS WHAT WAS IN A (GIVEN BY THE
+                        ; CALLER).  OLD A IS STORED IN B, OLD B IS LOST.
+                        ;
+                        ; 'QTSTG' LOOKS FOR A BACK-ARROW, SINGLE QUOTE, OR DOUBLE
+                        ; QUOTE.  IF NONE OF THESE, RETURN TO CALLER.  IF BACK-ARROW,
+                        ; OUTPUT A CR WITHOUT A LF.  IF SINGLE OR DOUBLE QUOTE, PRINT
+                        ; THE STRING IN THE QUOTE AND DEMANDS A MATCHING UNQUOTE.
+                        ; AFTER THE PRINTING THE NEXT 3 BYTES OF THE CALLER IS SKIPPED
+                        ; OVER (USUALLY A JUMP INSTRUCTION.
+                        ;
+                        ; 'PRTNUM' PRINTS THE NUMBER IN HL.  LEADING BLANKS ARE ADDED
+                        ; IF NEEDED TO PAD THE NUMBER OF SPACES TO THE NUMBER IN C.
+                        ; HOWEVER, IF THE NUMBER OF DIGITS IS LARGER THAN THE # IN
+                        ; C, ALL DIGITS ARE PRINTED ANYWAY.  NEGATIVE SIGN IS ALSO
+                        ; PRINTED AND COUNTED IN, POSITIVE SIGN IS NOT.
+                        ;
+                        ; 'PRTLN' PRINTS A SAVED TEXT LINE WITH LINE # AND ALL.
+                        ;
+   c8a6   47            PRTSTG: MOV  B,A                        ;*** PRTSTG ***
+   c8a7   1a            PS1:    LDAX D                          ;GET A CHARACTER
+   c8a8   13                    INX  D                          ;BUMP POINTER
+   c8a9   b8                    CMP  B                          ;SAME AS OLD A?
+   c8aa   c8                    RZ                              ;YES, RETURN
+   c8ab   cd 47 c2              CALL OUTC                          ;ELSE PRINT IT
+   c8ae   fe 0d                 CPI  CR                         ;WAS IT A CR?
+   c8b0   c2 a7 c8              JNZ  PS1                        ;NO, NEXT
+   c8b3   c9                    RET                             ;YES, RETURN
+                        ;
+   c8b4   cd 3d c2      QTSTG:  CALL TSTC                       ;*** QTSTG ***
+   c8b7   22                    DB   '"'
+   c8b8   0f                    DB   QT3-$-1
+   c8b9   3e 22                 MVI  A,22H                      ;IT IS A "
+   c8bb   cd a6 c8      QT1:    CALL PRTSTG                     ;PRINT UNTIL ANOTHER
+   c8be   fe 0d                 CPI  CR                         ;WAS LAST ONE A CR?
+   c8c0   e1                    POP  H                          ;RETURN ADDRESS
+   c8c1   ca 88 c3              JZ   RUNNXL                     ;WAS CR, RUN NEXT LINE
+   c8c4   23            QT2:    INX  H                          ;SKIP 3 BYTES ON RETURN
+   c8c5   23                    INX  H
+   c8c6   23                    INX  H
+   c8c7   e9                    PCHL                            ;RETURN
+   c8c8   cd 3d c2      QT3:    CALL TSTC                       ;IS IT A '?
+   c8cb   27                    DB   27H
+   c8cc   05                    DB   QT4-$-1
+   c8cd   3e 27                 MVI  A,27H                      ;YES, DO THE SAME
+   c8cf   c3 bb c8              JMP  QT1                        ;AS IN "
+   c8d2   cd 3d c2      QT4:    CALL TSTC                       ;IS IT BACK-ARROW?
+   c8d5   5f                    DB   5FH
+   c8d6   0c                    DB   QT5-$-1
+   c8d7   3e 8d                 MVI  A,08DH                     ;YES, CR WITHOUT LF
+   c8d9   cd 47 c2              CALL OUTC                       ;DO IT TWICE TO GIVE
+   c8dc   cd 47 c2              CALL OUTC                       ;TTY ENOUGH TIME
+   c8df   e1                    POP  H                          ;RETURN ADDRESS
+   c8e0   c3 c4 c8              JMP  QT2
+   c8e3   c9            QT5:    RET                             ;NONE OF ABOVE
+                        ;
+   c8e4   06 00         PRTNUM: MVI  B,0                        ;*** PRTNUM ***
+   c8e6   cd b1 c7              CALL CHKSGN                     ;CHECK SIGN
+   c8e9   f2 ef c8              JP   PN1                        ;NO SIGN
+   c8ec   06 2d                 MVI  B,'-'                      ;B=SIGN
+   c8ee   0d                    DCR  C                          ;'-' TAKES SPACE
+   c8ef   d5            PN1:    PUSH D                          ;SAVE
+   c8f0   11 0a 00              LXI  D,0AH                      ;DECIMAL
+   c8f3   d5                    PUSH D                          ;SAVE AS A FLAG
+   c8f4   0d                    DCR  C                          ;C=SPACES
+   c8f5   c5                    PUSH B                          ;SAVE SIGN & SPACE
+   c8f6   cd 94 c7      PN2:    CALL DIVIDE                     ;DIVIDE HL BY 10
+   c8f9   78                    MOV  A,B                        ;RESULT 0?
+   c8fa   b1                    ORA  C
+   c8fb   ca 06 c9              JZ   PN3                        ;YES, WE GOT ALL
+   c8fe   e3                    XTHL                            ;NO, SAVE REMAINDER
+   c8ff   2d                    DCR  L                          ;AND COUNT SPACE
+   c900   e5                    PUSH H                          ;HL IS OLD BC
+   c901   60                    MOV  H,B                        ;MOVE RESULT TO BC
+   c902   69                    MOV  L,C
+   c903   c3 f6 c8              JMP  PN2                        ;AND DIVIDE BY 10
+   c906   c1            PN3:    POP  B                          ;WE GOT ALL DIGITS IN
+   c907   0d            PN4:    DCR  C                          ;THE STACK
+   c908   79                    MOV  A,C                        ;LOOK AT SPACE COUNT
+   c909   b7                    ORA  A
+   c90a   fa 15 c9              JM   PN5                        ;NO LEADING BLANKS
+   c90d   3e 20                 MVI  A,20H                      ;LEADING BLANKS
+   c90f   cd 47 c2              CALL OUTC
+   c912   c3 07 c9              JMP  PN4                        ;MORE?
+   c915   78            PN5:    MOV  A,B                        ;PRINT SIGN
+   c916   b7                    ORA  A
+   c917   c4 10 00              CNZ  10H
+   c91a   5d                    MOV  E,L                        ;LAST REMAINDER IN E
+   c91b   7b            PN6:    MOV  A,E                        ;CHECK DIGIT IN E
+   c91c   fe 0a                 CPI  0AH                        ;10 IS FLAG FOR NO MORE
+   c91e   d1                    POP  D
+   c91f   c8                    RZ                              ;IF SO, RETURN
+   c920   c6 30                 ADI  30H                        ;ELSE CONVERT TO ASCII
+   c922   cd 47 c2              CALL OUTC                       ;AND PRINT THE DIGIT
+   c925   c3 1b c9              JMP  PN6                        ;GO BACK FOR MORE
+                        ;
+   c928   1a            PRTLN:  LDAX D                          ;*** PRTLN ***
+   c929   6f                    MOV  L,A                        ;LOW ORDER LINE #
+   c92a   13                    INX  D
+   c92b   1a                    LDAX D                          ;HIGH ORDER
+   c92c   67                    MOV  H,A
+   c92d   13                    INX  D
+   c92e   0e 04                 MVI  C,4H                       ;PRINT 4 DIGIT LINE #
+   c930   cd e4 c8              CALL PRTNUM
+   c933   3e 20                 MVI  A,20H                      ;FOLLOWED BY A BLANK
+   c935   cd 47 c2              CALL OUTC
+   c938   97                    SUB  A                          ;AND THEN THE NEXT
+   c939   cd a6 c8              CALL PRTSTG
+   c93c   c9                    RET
+                        ;
+                        ;*************************************************************
+                        ;
+                        ; *** MVUP *** MVDOWN *** POPA *** & PUSHA ***
+                        ;
+                        ; 'MVUP' MOVES A BLOCK UP FROM WHERE DE-> TO WHERE BC-> UNTIL
+                        ; DE = HL
+                        ;
+                        ; 'MVDOWN' MOVES A BLOCK DOWN FROM WHERE DE-> TO WHERE HL->
+                        ; UNTIL DE = BC
+                        ;
+                        ; 'POPA' RESTORES THE 'FOR' LOOP VARIABLE SAVE AREA FROM THE
+                        ; STACK
+                        ;
+                        ; 'PUSHA' STACKS THE 'FOR' LOOP VARIABLE SAVE AREA INTO THE
+                        ; STACK
+                        ;
+   c93d   cd 57 c2      MVUP:   CALL COMP                       ;*** MVUP ***
+   c940   c8                    RZ                              ;DE = HL, RETURN
+   c941   1a                    LDAX D                          ;GET ONE BYTE
+   c942   02                    STAX B                          ;MOVE IT
+   c943   13                    INX  D                          ;INCREASE BOTH POINTERS
+   c944   03                    INX  B
+   c945   c3 3d c9              JMP  MVUP                       ;UNTIL DONE
+                        ;
+   c948   78            MVDOWN: MOV  A,B                        ;*** MVDOWN ***
+   c949   92                    SUB  D                          ;TEST IF DE = BC
+   c94a   c2 50 c9              JNZ  MD1                        ;NO, GO MOVE
+   c94d   79                    MOV  A,C                        ;MAYBE, OTHER BYTE?
+   c94e   93                    SUB  E
+   c94f   c8                    RZ                              ;YES, RETURN
+   c950   1b            MD1:    DCX  D                          ;ELSE MOVE A BYTE
+   c951   2b                    DCX  H                          ;BUT FIRST DECREASE
+   c952   1a                    LDAX D                          ;BOTH POINTERS AND
+   c953   77                    MOV  M,A                        ;THEN DO IT
+   c954   c3 48 c9              JMP  MVDOWN                     ;LOOP BACK
+                        ;
+   c957   c1            POPA:   POP  B                          ;BC = RETURN ADDR.
+   c958   e1                    POP  H                          ;RESTORE LOPVAR, BUT
+   c959   22 1a 01              SHLD LOPVAR                     ;=0 MEANS NO MORE
+   c95c   7c                    MOV  A,H
+   c95d   b5                    ORA  L
+   c95e   ca 71 c9              JZ   PP1                        ;YEP, GO RETURN
+   c961   e1                    POP  H                          ;NOP, RESTORE OTHERS
+   c962   22 1c 01              SHLD LOPINC
+   c965   e1                    POP  H
+   c966   22 1e 01              SHLD LOPLMT
+   c969   e1                    POP  H
+   c96a   22 20 01              SHLD LOPLN
+   c96d   e1                    POP  H
+   c96e   22 22 01              SHLD LOPPT
+   c971   c5            PP1:    PUSH B                          ;BC = RETURN ADDR.
+   c972   c9                    RET
+                        ;
+   c973   21 88 21      PUSHA:  LXI  H,STKLMT                   ;*** PUSHA ***
+   c976   cd b4 c7              CALL CHGSGN
+   c979   c1                    POP  B                          ;BC=RETURN ADDRESS
+   c97a   39                    DAD  SP                         ;IS STACK NEAR THE TOP?
+   c97b   d2 31 c8              JNC  QSORRY                     ;YES, SORRY FOR THAT
+   c97e   2a 1a 01              LHLD LOPVAR                     ;ELSE SAVE LOOP VAR'S
+   c981   7c                    MOV  A,H                        ;BUT IF LOPVAR IS 0
+   c982   b5                    ORA  L                          ;THAT WILL BE ALL
+   c983   ca 99 c9              JZ   PU1
+   c986   2a 22 01              LHLD LOPPT                      ;ELSE, MORE TO SAVE
+   c989   e5                    PUSH H
+   c98a   2a 20 01              LHLD LOPLN
+   c98d   e5                    PUSH H
+   c98e   2a 1e 01              LHLD LOPLMT
+   c991   e5                    PUSH H
+   c992   2a 1c 01              LHLD LOPINC
+   c995   e5                    PUSH H
+   c996   2a 1a 01              LHLD LOPVAR
+   c999   e5            PU1:    PUSH H
+   c99a   c5                    PUSH B                          ;BC = RETURN ADDR.
+   c99b   c9                    RET
+                        ;
+                        ;*************************************************************
+                        ;
+                        ; *** OUTC *** & CHKIO ***
+                        ;
+                        ; THESE ARE THE ONLY I/O ROUTINES IN TBI.
+                        ; 'OUTC' IS CONTROLLED BY A SOFTWARE SWITCH 'OCSW'.  IF OCSW=0
+                        ; 'OUTC' WILL JUST RETURN TO THE CALLER.  IF OCSW IS NOT 0,
+                        ; IT WILL OUTPUT THE BYTE IN A.  IF THAT IS A CR, A LF IS ALSO
+                        ; SEND OUT.  ONLY THE FLAGS MAY BE CHANGED AT RETURN. ALL REG.
+                        ; ARE RESTORED.
+                        ;
+                        ; 'CHKIO' CHECKS THE INPUT.  IF NO INPUT, IT WILL RETURN TO
+                        ; THE CALLER WITH THE Z FLAG SET.  IF THERE IS INPUT, Z FLAG
+                        ; IS CLEARED AND THE INPUT BYTE IS IN A.  HOWEVER, IF THE
+                        ; INPUT IS A CONTROL-O, THE 'OCSW' SWITCH IS COMPLIMENTED, AND
+                        ; Z FLAG IS RETURNED.  IF A CONTROL-C IS READ, 'CHKIO' WILL
+                        ; RESTART TBI AND DO NOT RETURN TO THE CALLER.
+                        ;
+                        ;OUTC:  PUSH PSW                        ;THIS IS AT LOC. 10
+                        ;       LDA  OCSW                       ;CHECK SOFTWARE SWITCH
+                        ;       ORA  A
+   c99c   32 00 01      INIT:   STA  OCSW
+                                ;Set SYSTICK, RTCTICK and KBDDATA to 0x00
+   c99f   21 00 00              LXI  H, 0000H
+   c9a2   22 7d 21              SHLD SYSTICK
+   c9a5   21 00 00              LXI  H, 0000H
+   c9a8   22 7f 21              SHLD RTCTICK
+   c9ab   3e 00                 MVI A, 00H
+   c9ad   32 81 21              STA  KBDDATA
+                                ;Initialize 8253
+   c9b0   3e 30         		MVI  A, 30H                     ;TIMER0 - systick
+   c9b2   d3 4b         		OUT  CONTR_W_8253               ;Timer 0, write LSB then MSB, mode 0, binary 
+   c9b4   3e 00         		MVI  A, 00H                     ;LSB, interrupt every 20ms
+   c9b6   d3 48         		OUT  COUNT_REG_0_8253
+   c9b8   3e a0         		MVI  A, 0A0H                    ;MSB, interrupt every 20ms (0xF0 for 30 ms)
+   c9ba   d3 48         		OUT  COUNT_REG_0_8253	
+   c9bc   3e b6         		MVI  A, 0B6H                    ;TIMER2 - baudrate generator for 8251
+   c9be   d3 4b         		OUT CONTR_W_8253                ;Timer 2, write LSB then MSB, mode 3, binary
+   c9c0   3e 0d         		MVI  A, 0DH                     ;LSB
+   c9c2   d3 4a         		OUT  COUNT_REG_2_8253
+   c9c4   3e 00         		MVI  A, 00H                     ;MSB
+   c9c6   d3 4a         		OUT  COUNT_REG_2_8253     
+                                ;Initialize 8251
+   c9c8   3e 4e                 MVI	 A, 4EH
+   c9ca   d3 41                 OUT	 UART_8251_CTRL
+   c9cc   3e 27                 MVI	 A, 27H
+   c9ce   d3 41                 OUT	 UART_8251_CTRL
+                                ;Initialize 8259
+                                ;MVI  A, 0FFH					;ICW1 - LSB of IR0_VECT = 0xE0, level triggered, 4 byte intervals, one 8259, ICW4 needed
+                                ;OUT  PIC_8259_LOW				;ICW1 is written to the low port of 8259
+                                ;MVI  A, 0FFH					;ICW2, MSB of IR0_VECT
+                                ;OUT	 PIC_8259_HIGH				;ICW2 is written to the high port of 8259
+                                ;MVI  A, 02H						;ICW4 - NOT special full nested mode, not buffored, master, automatic EOI, 8080 processor
+                                ;OUT  PIC_8259_HIGH				;ICW4 is written to the high port of 8259        
+                                ;MVI  A, 9BH						;OCW1 active TIMER, RTC and KBD interrupt
+                                ;OUT  PIC_8259_HIGH				;OCW1 is written to the high port of 8259
+                                ;MVI  A, 80H						;OCW2 - Rotation of priorities, no explicit EOI
+                                ;OUT  PIC_8259_LOW				;OCW2 is written to the low port of 8259
+                        ;        MVI  A, 4BH				    ;OCW3 - ESMM SMM RESET SPECIAL MASK, NO POLL COMMAND, RR_RIS_READ_IS_REG
+                        ;        OUT  PIC_8259_LOW				;OCW3 is written to the low port of 8259
+                                ;Initialize M6442B RTC
+                                ;MVI  A, 04H                     ;30 AJD = 0, IRQ FLAG = 1 (required), BUSY = 0(?), HOLD = 0
+                                ;OUT  RTC_CTRLD_REG
+                                ;MVI  A, 06H                     ;Innterrupt mode, STD.P enabled, 1 s.
+                                ;OUT  RTC_CTRLE_REG
+                                ;MVI  A, 04H                     ;TEST = 0, 24h mode, STOP = 0, RESET = 0
+                                ;OUT  RTC_CTRLF_REG
+                                		
+   c9d0   01 03 00              LXI  B, 3                       ;BYTES TO TRANSFER
+   c9d3   11 4a ca              LXI  D, OUTIO_ROM               ;SOURCE
+   c9d6   21 01 01              LXI  H, OUTIO                   ;DESTINATION
+   c9d9   cd 2f c2              CALL MEMCOPY
+   c9dc   01 0a 00              LXI  B, 10                      ;BYTES TO TRANSFER
+   c9df   11 4d ca              LXI  D, WAITIO_ROM              ;SOURCE
+   c9e2   21 04 01              LXI  H, WAITIO                  ;DESTINATION
+   c9e5   cd 2f c2              CALL MEMCOPY
+   c9e8   01 04 00              LXI  B, 4                       ;BYTES TO TRANSFER
+   c9eb   11 57 ca              LXI  D, INPIO_ROM               ;SOURCE
+   c9ee   21 0e 01              LXI  H, INPIO                   ;DESTINATION
+   c9f1   cd 2f c2              CALL MEMCOPY
+                        		
+                                ;CALL CFINIT
+                                ;CALL CFRSECT
+                                ;CALL CFINFO
+                                
+                        
+                        ;       Initialize keyboard
+                        ;        LXI D, KBDMSG                       ;Print KBD Init message
+                        ;        CALL PRTSTG
+                        ;        CALL KBDINIT                        ;Call init routine
+                        ;        MOV L, B                            ;Check and print result code
+                        ;        MVI H, 00H
+                        ;        MVI C, 02H
+                        ;        CALL PRTNUM
+                        ;        CALL CRLF
+                                ;Enable interrupts
+                                ;EI
+                                
+   c9f4                 PATLOP:
+   c9f4   cd 45 c2              CALL CRLF
+   c9f7   15                    DCR  D
+   c9f8   c2 f4 c9              JNZ  PATLOP
+   c9fb   97                    SUB  A
+   c9fc   11 5b ca              LXI  D,MSG1
+   c9ff   cd a6 c8              CALL PRTSTG
+   ca02   21 07 c0              LXI  H,START
+   ca05   22 24 01              SHLD RANPNT
+   ca08   21 28 01              LXI  H,TXTBGN
+   ca0b   22 26 01              SHLD TXTUNF
+   ca0e   c3 f7 c2              JMP  RSTART
+   ca11   c2 16 ca      OC2:    JNZ  OC3                        ;IT IS ON
+   ca14   f1                    POP  PSW                        ;IT IS OFF
+   ca15   c9                    RET                             ;RESTORE AF AND RETURN
+   ca16   db 41         OC3:    IN   UART_8251_CTRL             ;COME HERE TO DO OUTPUT
+   ca18   e6 01                 ANI  TxRDY_MASK                 ;STATUS BIT
+   ca1a   ca 16 ca              JZ   OC3                        ;NOT READY, WAIT
+   ca1d   f1                    POP  PSW                        ;READY, GET OLD A BACK
+   ca1e   d3 40                 OUT  UART_8251_DATA             ;AND SEND IT OUT
+   ca20   fe 0d                 CPI  CR                         ;WAS IT CR?
+   ca22   c0                    RNZ                             ;NO, FINISHED
+   ca23   3e 0a                 MVI  A,LF                       ;YES, WE SEND LF TOO
+   ca25   cd 47 c2              CALL OUTC                       ;THIS IS RECURSIVE
+   ca28   3e 0d                 MVI  A,CR                       ;GET CR BACK IN A
+   ca2a   c9                    RET
+                        ;
+   ca2b   db 41         CHKIO:  IN   UART_8251_CTRL             ;*** CHKIO ***
+   ca2d   00                    NOP                             ;STATUS BIT FLIPPED?
+   ca2e   e6 02                 ANI  RxRDY_MASK                 ;MASK STATUS BIT
+   ca30   c8                    RZ                              ;NOT READY, RETURN "Z"
+   ca31   db 40                 IN   UART_8251_DATA             ;READY, READ DATA
+                        ;CHKIO:	PUSH B
+                        ;		PUSH D
+                        ;		PUSH H
+                        ;		CALL KBD2ASCII
+                        ;		POP H
+                        ;		POP D
+                        ;		POP B
+                        ;		CPI  00H
+                        ;		RZ
+   ca33   e6 7f                 ANI  7FH                        ;MASK BIT 7 OFF
+   ca35   fe 0f                 CPI  0FH                        ;IS IT CONTROL-O?
+   ca37   c2 44 ca              JNZ  CI1                        ;NO, MORE CHECKING
+   ca3a   3a 00 01              LDA  OCSW                       ;CONTROL-O FLIPS OCSW
+   ca3d   2f                    CMA                             ;ON TO OFF, OFF TO ON
+   ca3e   32 00 01              STA  OCSW
+   ca41   c3 2b ca              JMP  CHKIO                      ;GET ANOTHER INPUT
+   ca44   fe 03         CI1:    CPI  3H                         ;IS IT CONTROL-C?
+   ca46   c0                    RNZ                             ;NO, RETURN "NZ"
+   ca47   c3 f7 c2              JMP  RSTART                     ;YES, RESTART TBI
+   ca4a                 OUTIO_ROM
+   ca4a   d3 ff                 OUT  0FFH
+   ca4c   c9            		RET
+   ca4d                 WAITIO_ROM
+   ca4d   db ff                 IN   0FFH
+   ca4f   ac            		XRA  H
+   ca50   a5            		ANA  L
+   ca51   ca 04 01      		JZ   WAITIO
+   ca54   cd 67 c2      		CALL FINISH ;RST 6
+   ca57                 INPIO_ROM
+   ca57   db ff                 IN   0FFH
+   ca59   6f            		MOV  L,A
+   ca5a   c9            		RET				
+                        ;
+   ca5b   54 49 4e 59   MSG1:   DB   'TINY '
+   ca5f   20            
+   ca60   42 41 53 49           DB   'BASIC'
+   ca64   43            
+   ca65   0d                    DB   CR
+   ca66   43 46 20      CFMSG1: DB   'CF '
+   ca69   45 52 52 4f           DB   'ERROR: '
+   ca6d   52 3a 20      
+   ca70   0d                    DB   CR
+   ca71   4b 45 59 42   KBDMSG: DB   'KEYBOARD '
+   ca75   4f 41 52 44   
+   ca79   20            
+   ca7a   49 4e 49 54           DB   'INIT: '
+   ca7e   3a 20         
+   ca80   0d                    DB   CR
+                        
+                        ;
+                        ;*************************************************************
+                        ;
+                        ; *** TABLES *** DIRECT *** & EXEC ***
+                        ;
+                        ; THIS SECTION OF THE CODE TESTS A STRING AGAINST A TABLE.
+                        ; WHEN A MATCH IS FOUND, CONTROL IS TRANSFERED TO THE SECTION
+                        ; OF CODE ACCORDING TO THE TABLE.
+                        ;
+                        ; AT 'EXEC', DE SHOULD POINT TO THE STRING AND HL SHOULD POINT
+                        ; TO THE TABLE-1.  AT 'DIRECT', DE SHOULD POINT TO THE STRING.
+                        ; HL WILL BE SET UP TO POINT TO TAB1-1, WHICH IS THE TABLE OF
+                        ; ALL DIRECT AND STATEMENT COMMANDS.
+                        ;
+                        ; A '.' IN THE STRING WILL TERMINATE THE TEST AND THE PARTIAL
+                        ; MATCH WILL BE CONSIDERED AS A MATCH.  E.G., 'P.', 'PR.',
+                        ; 'PRI.', 'PRIN.', OR 'PRINT' WILL ALL MATCH 'PRINT'.
+                        ;
+                        ; THE TABLE CONSISTS OF ANY NUMBER OF ITEMS.  EACH ITEM
+                        ; IS A STRING OF CHARACTERS WITH BIT 7 SET TO 0 AND
+                        ; A JUMP ADDRESS STORED HI-LOW WITH BIT 7 OF THE HIGH
+                        ; BYTE SET TO 1.
+                        ;
+                        ; END OF TABLE IS AN ITEM WITH A JUMP ADDRESS ONLY.  IF THE
+                        ; STRING DOES NOT MATCH ANY OF THE OTHER ITEMS, IT WILL
+                        ; MATCH THIS NULL ITEM AS DEFAULT.
+                        ;
+   ca81                 TAB1:                                   ;DIRECT COMMANDS
+   ca81   4c 49 53 54           DB   'LIST'
+   ca85   c3                    DB HIGH(LIST) OR 80H
+   ca86   b2                    DB LOW(LIST) 
+   ca87   52 55 4e              DB   'RUN'
+   ca8a   c3                    DB HIGH(RUN) OR 80H
+   ca8b   82                    DB LOW(RUN)
+   ca8c   4e 45 57              DB   'NEW'
+   ca8f   c3                    DB HIGH(NEW) OR 80H
+   ca90   73                    DB LOW(NEW)
+                        ;
+   ca91                 TAB2:                                   ;DIRECT/STATEMENT
+   ca91   4e 45 58 54           DB   'NEXT'
+   ca95   c4                    DB HIGH(NEXT) OR 80H
+   ca96   b2                    DB LOW(NEXT)
+   ca97   4c 45 54              DB   'LET'
+   ca9a   c5                    DB HIGH(LET) OR 80H
+   ca9b   92                    DB LOW(LET)
+   ca9c   4f 55 54              DB   'OUT'
+   ca9f   c6                    DB HIGH(OUTCMD) OR 80H
+   caa0   ef                    DB LOW(OUTCMD)           
+   caa1   50 4f 4b 45           DB   'POKE'
+   caa5   c7                    DB HIGH(POKE) OR 80H
+   caa6   3f                    DB LOW(POKE)      
+   caa7   57 41 49 54           DB   'WAIT'
+   caab   c7                    DB HIGH(WAITCM) OR 80H
+   caac   0d                    DB LOW(WAITCM)                          
+   caad   49 46                 DB   'IF'
+   caaf   c5                    DB HIGH(IFF) OR 80H
+   cab0   17                    DB LOW(IFF)
+   cab1   47 4f 54 4f           DB   'GOTO'
+   cab5   c3                    DB HIGH(GOTO) OR 80H
+   cab6   a1                    DB LOW(GOTO)
+   cab7   47 4f 53 55           DB   'GOSUB'
+   cabb   42            
+   cabc   c4                    DB HIGH(GOSUB) OR 80H
+   cabd   10                    DB LOW(GOSUB)
+   cabe   52 45 54 55           DB   'RETURN'
+   cac2   52 4e         
+   cac4   c4                    DB HIGH(RETURN) OR 80H
+   cac5   32                    DB LOW(RETURN)
+   cac6   52 45 4d              DB   'REM'
+   cac9   c5                    DB HIGH(REM) OR 80H
+   caca   13                    DB LOW(REM)
+   cacb   46 4f 52              DB   'FOR'
+   cace   c4                    DB HIGH(FOR) OR 80H
+   cacf   4d                    DB LOW(FOR)
+   cad0   49 4e 50 55           DB   'INPUT'
+   cad4   54            
+   cad5   c5                    DB HIGH(INPUT) OR 80H
+   cad6   32                    DB LOW(INPUT)
+   cad7   50 52 49 4e           DB   'PRINT'
+   cadb   54            
+   cadc   c3                    DB HIGH(PRINT) OR 80H
+   cadd   ca                    DB LOW(PRINT)
+   cade   53 54 4f 50           DB   'STOP'
+   cae2   c3                    DB HIGH(STOP) OR 80H
+   cae3   7c                    DB LOW(STOP)            
+   cae4   c5                    DB HIGH(DEFLT) OR 80H
+   cae5   8c                    DB LOW(DEFLT)
+                        ;
+   cae6                 TAB4:                                   ;FUNCTIONS
+   cae6   52 4e 44              DB   'RND'
+   cae9   c6                    DB HIGH(RND) OR 80H
+   caea   ac                    DB LOW(RND)
+   caeb   49 4e 50              DB   'INP'
+   caee   c7                    DB HIGH(INP) OR 80H
+   caef   30                    DB LOW(INP)        
+   caf0   50 45 45 4b           DB   'PEEK'
+   caf4   c7                    DB HIGH(PEEK) OR 80H
+   caf5   59                    DB LOW(PEEK)    
+   caf6   55 53 52              DB   'USR'
+   caf9   c7                    DB HIGH(USR) OR 80H
+   cafa   c7                    DB HIGH(USR)      
+   cafb   41 42 53              DB   'ABS'
+   cafe   c6                    DB HIGH(ABS) OR 80H
+   caff   d9                    DB LOW(ABS)
+   cb00   53 49 5a 45           DB   'SIZE'
+   cb04   c6                    DB HIGH(SIZE) OR 80H
+   cb05   e2                    DB LOW(SIZE)
+   cb06   c6                    DB HIGH(XP40) OR 80H
+   cb07   8a                    DB LOW(XP40)
+                        ;
+   cb08                 TAB5:                                   ;"TO" IN "FOR"
+   cb08   54 4f                 DB   'TO'
+   cb0a   c4                    DB HIGH(FR1) OR 80H
+   cb0b   5d                    DB LOW(FR1)
+   cb0c   c8                    DB HIGH(QWHAT) OR 80H
+   cb0d   02                    DB LOW(QWHAT)
+                        ;
+   cb0e                 TAB6:                                   ;"STEP" IN "FOR"
+   cb0e   53 54 45 50           DB   'STEP'
+   cb12   c4                    DB HIGH(FR2) OR 80H
+   cb13   69                    DB LOW(FR2)
+   cb14   c4                    DB HIGH(FR3) OR 80H
+   cb15   6f                    DB LOW(FR3)
+                        ;
+   cb16                 TAB8:                                   ;RELATION OPERATORS
+   cb16   3e 3d                 DB   '>='
+   cb18   c5                    DB HIGH(XP11) OR 80H
+   cb19   a6                    DB LOW(XP11)
+   cb1a   23                    DB   '#'
+   cb1b   c5                    DB HIGH(XP12) OR 80H
+   cb1c   ac                    DB LOW(XP12)
+   cb1d   3e                    DB   '>'
+   cb1e   c5                    DB HIGH(XP13) OR 80H
+   cb1f   b2                    DB LOW(XP13)
+   cb20   3d                    DB   '='
+   cb21   c5                    DB HIGH(XP14) OR 80H
+   cb22   b9                    DB LOW(XP14)
+   cb23   3c 3d                 DB   '<='
+   cb25   c5                    DB HIGH(XP15) OR 80H
+   cb26   c1                    DB LOW(XP15)
+   cb27   3c                    DB   '<'
+   cb28   c5                    DB HIGH(XP16) OR 80H
+   cb29   c7                    DB LOW(XP16)
+   cb2a   c5                    DB HIGH(XP17) OR 80H
+   cb2b   cd                    DB LOW(XP17)
+                        ;
+                        
+   cb2c                 CHARS:
+                                ;This is the IBM-PC Character ROM +20H
+   cb2c   00 00 00 00           DB 000H,000H,000H,000H,000H,000H,000H,000H ;SP
+   cb30   00 00 00 00   
+   cb34   30 78 78 30           DB 030H,078H,078H,030H,030H,000H,030H,000H ;!
+   cb38   30 00 30 00   
+   cb3c   6c 6c 6c 00           DB 06CH,06CH,06CH,000H,000H,000H,000H,000H ;"
+   cb40   00 00 00 00   
+   cb44   6c 6c fe 6c           DB 06CH,06CH,0FEH,06CH,0FEH,06CH,06CH,000H ;#
+   cb48   fe 6c 6c 00   
+   cb4c   30 7c c0 78           DB 030H,07CH,0C0H,078H,00CH,0F8H,030H,000H ;$
+   cb50   0c f8 30 00   
+   cb54   00 c6 cc 18           DB 000H,0C6H,0CCH,018H,030H,066H,0C6H,000H ;%
+   cb58   30 66 c6 00   
+   cb5c   38 6c 38 76           DB 038H,06CH,038H,076H,0DCH,0CCH,076H,000H ;&
+   cb60   dc cc 76 00   
+   cb64   60 60 c0 00           DB 060H,060H,0C0H,000H,000H,000H,000H,000H ;'
+   cb68   00 00 00 00   
+   cb6c   18 30 60 60           DB 018H,030H,060H,060H,060H,030H,018H,000H ;(
+   cb70   60 30 18 00   
+   cb74   60 30 18 18           DB 060H,030H,018H,018H,018H,030H,060H,000H ;)
+   cb78   18 30 60 00   
+   cb7c   00 66 3c ff           DB 000H,066H,03CH,0FFH,03CH,066H,000H,000H ;*
+   cb80   3c 66 00 00   
+   cb84   00 30 30 fc           DB 000H,030H,030H,0FCH,030H,030H,000H,000H ;+
+   cb88   30 30 00 00   
+   cb8c   00 00 00 00           DB 000H,000H,000H,000H,000H,030H,030H,060H ;'
+   cb90   00 30 30 60   
+   cb94   00 00 00 fc           DB 000H,000H,000H,0FCH,000H,000H,000H,000H ;-
+   cb98   00 00 00 00   
+   cb9c   00 00 00 00           DB 000H,000H,000H,000H,000H,030H,030H,000H ;.
+   cba0   00 30 30 00   
+   cba4   06 0c 18 30           DB 006H,00CH,018H,030H,060H,0C0H,080H,000H ;/
+   cba8   60 c0 80 00   
+   cbac   7c c6 ce de           DB 07CH,0C6H,0CEH,0DEH,0F6H,0E6H,07CH,000H ;30, 0
+   cbb0   f6 e6 7c 00   
+   cbb4   30 70 30 30           DB 030H,070H,030H,030H,030H,030H,0FCH,000H ;31, 1
+   cbb8   30 30 fc 00   
+   cbbc   78 cc 0c 38           DB 078H,0CCH,00CH,038H,060H,0CCH,0FCH,000H ;32, 2
+   cbc0   60 cc fc 00   
+   cbc4   78 cc 0c 38           DB 078H,0CCH,00CH,038H,00CH,0CCH,078H,000H ;33, 3
+   cbc8   0c cc 78 00   
+   cbcc   1c 3c 6c cc           DB 01CH,03CH,06CH,0CCH,0FEH,00CH,01EH,000H ;34, 4
+   cbd0   fe 0c 1e 00   
+   cbd4   fc c0 f8 0c           DB 0FCH,0C0H,0F8H,00CH,00CH,0CCH,078H,000H ;35, 5
+   cbd8   0c cc 78 00   
+   cbdc   38 60 c0 f8           DB 038H,060H,0C0H,0F8H,0CCH,0CCH,078H,000H ;36, 6
+   cbe0   cc cc 78 00   
+   cbe4   fc cc 0c 18           DB 0FCH,0CCH,00CH,018H,030H,030H,030H,000H ;37, 7
+   cbe8   30 30 30 00   
+   cbec   78 cc cc 78           DB 078H,0CCH,0CCH,078H,0CCH,0CCH,078H,000H ;38, 8
+   cbf0   cc cc 78 00   
+   cbf4   78 cc cc 7c           DB 078H,0CCH,0CCH,07CH,00CH,018H,070H,000H ;39, 9
+   cbf8   0c 18 70 00   
+   cbfc   00 30 30 00           DB 000H,030H,030H,000H,000H,030H,030H,000H ;:
+   cc00   00 30 30 00   
+   cc04   00 30 30 00           DB 000H,030H,030H,000H,000H,030H,030H,060H ;;
+   cc08   00 30 30 60   
+   cc0c   18 30 60 c0           DB 018H,030H,060H,0C0H,060H,030H,018H,000H ;<
+   cc10   60 30 18 00   
+   cc14   00 00 fc 00           DB 000H,000H,0FCH,000H,000H,0FCH,000H,000H ;=
+   cc18   00 fc 00 00   
+   cc1c   60 30 18 0c           DB 060H,030H,018H,00CH,018H,030H,060H,000H ;>
+   cc20   18 30 60 00   
+   cc24   78 cc 0c 18           DB 078H,0CCH,00CH,018H,030H,000H,030H,000H ;?
+   cc28   30 00 30 00   
+   cc2c   7c c6 de de           DB 07CH,0C6H,0DEH,0DEH,0DEH,0C0H,078H,000H ;@
+   cc30   de c0 78 00   
+   cc34   30 78 cc cc           DB 030H,078H,0CCH,0CCH,0FCH,0CCH,0CCH,000H ;A
+   cc38   fc cc cc 00   
+   cc3c   fc 66 66 7c           DB 0FCH,066H,066H,07CH,066H,066H,0FCH,000H ;B
+   cc40   66 66 fc 00   
+   cc44   3c 66 c0 c0           DB 03CH,066H,0C0H,0C0H,0C0H,066H,03CH,000H ;C
+   cc48   c0 66 3c 00   
+   cc4c   f8 6c 66 66           DB 0F8H,06CH,066H,066H,066H,06CH,0F8H,000H ;D
+   cc50   66 6c f8 00   
+   cc54   fe 62 68 78           DB 0FEH,062H,068H,078H,068H,062H,0FEH,000H ;E
+   cc58   68 62 fe 00   
+   cc5c   fe 62 68 78           DB 0FEH,062H,068H,078H,068H,060H,0F0H,000H ;F
+   cc60   68 60 f0 00   
+   cc64   3c 66 c0 c0           DB 03CH,066H,0C0H,0C0H,0CEH,066H,03EH,000H ;G
+   cc68   ce 66 3e 00   
+   cc6c   cc cc cc fc           DB 0CCH,0CCH,0CCH,0FCH,0CCH,0CCH,0CCH,000H ;H
+   cc70   cc cc cc 00   
+   cc74   78 30 30 30           DB 078H,030H,030H,030H,030H,030H,078H,000H ;I
+   cc78   30 30 78 00   
+   cc7c   1e 0c 0c 0c           DB 01EH,00CH,00CH,00CH,0CCH,0CCH,078H,000H ;J
+   cc80   cc cc 78 00   
+   cc84   e6 66 6c 78           DB 0E6H,066H,06CH,078H,06CH,066H,0E6H,000H ;K
+   cc88   6c 66 e6 00   
+                                
+   cc8c   f0 60 60 60           DB 0F0H,060H,060H,060H,062H,066H,0FEH,000H ;L
+   cc90   62 66 fe 00   
+   cc94   c6 ee fe fe           DB 0C6H,0EEH,0FEH,0FEH,0D6H,0C6H,0C6H,000H ;M
+   cc98   d6 c6 c6 00   
+   cc9c   c6 e6 f6 de           DB 0C6H,0E6H,0F6H,0DEH,0CEH,0C6H,0C6H,000H ;N
+   cca0   ce c6 c6 00   
+   cca4   38 6c c6 c6           DB 038H,06CH,0C6H,0C6H,0C6H,06CH,038H,000H ;O
+   cca8   c6 6c 38 00   
+   ccac   fc 66 66 7c           DB 0FCH,066H,066H,07CH,060H,060H,0F0H,000H ;P
+   ccb0   60 60 f0 00   
+   ccb4   78 cc cc cc           DB 078H,0CCH,0CCH,0CCH,0DCH,078H,01CH,000H ;Q
+   ccb8   dc 78 1c 00   
+   ccbc   fc 66 66 7c           DB 0FCH,066H,066H,07CH,06CH,066H,0E6H,000H ;R
+   ccc0   6c 66 e6 00   
+   ccc4   78 cc e0 70           DB 078H,0CCH,0E0H,070H,01CH,0CCH,078H,000H ;S
+   ccc8   1c cc 78 00   
+   cccc   fc b4 30 30           DB 0FCH,0B4H,030H,030H,030H,030H,078H,000H ;T
+   ccd0   30 30 78 00   
+   ccd4   cc cc cc cc           DB 0CCH,0CCH,0CCH,0CCH,0CCH,0CCH,0FCH,000H ;U
+   ccd8   cc cc fc 00   
+   ccdc   cc cc cc cc           DB 0CCH,0CCH,0CCH,0CCH,0CCH,078H,030H,000H ;V
+   cce0   cc 78 30 00   
+   cce4   c6 c6 c6 d6           DB 0C6H,0C6H,0C6H,0D6H,0FEH,0EEH,0C6H,000H ;W
+   cce8   fe ee c6 00   
+   ccec   c6 c6 6c 38           DB 0C6H,0C6H,06CH,038H,038H,06CH,0C6H,000H ;X
+   ccf0   38 6c c6 00   
+   ccf4   cc cc cc 78           DB 0CCH,0CCH,0CCH,078H,030H,030H,078H,000H ;Y
+   ccf8   30 30 78 00   
+   ccfc   fe c6 8c 18           DB 0FEH,0C6H,08CH,018H,032H,066H,0FEH,000H ;Z
+   cd00   32 66 fe 00   
+   cd04   78 60 60 60           DB 078H,060H,060H,060H,060H,060H,078H,000H ;[
+   cd08   60 60 78 00   
+   cd0c   c0 60 30 18           DB 0C0H,060H,030H,018H,00CH,006H,002H,000H
+   cd10   0c 06 02 00   
+                                ;
+                                
+   cd14   78 18 18 18           DB 078H,018H,018H,018H,018H,018H,078H,000H ;]
+   cd18   18 18 78 00   
+   cd1c   10 38 6c c6           DB 010H,038H,06CH,0C6H,000H,000H,000H,000H ;^
+   cd20   00 00 00 00   
+   cd24   00 00 00 00           DB 000H,000H,000H,000H,000H,000H,000H,0FFH ;_
+   cd28   00 00 00 ff   
+   cd2c   30 30 18 00           DB 030H,030H,018H,000H,000H,000H,000H,000H ;'
+   cd30   00 00 00 00   
+   cd34   00 00 78 0c           DB 000H,000H,078H,00CH,07CH,0CCH,076H,000H ;a
+   cd38   7c cc 76 00   
+   cd3c   e0 60 60 7c           DB 0E0H,060H,060H,07CH,066H,066H,0DCH,000H ;b
+   cd40   66 66 dc 00   
+   cd44   00 00 78 cc           DB 000H,000H,078H,0CCH,0C0H,0CCH,078H,000H ;c
+   cd48   c0 cc 78 00   
+   cd4c   1c 0c 0c 7c           DB 01CH,00CH,00CH,07CH,0CCH,0CCH,076H,000H ;d
+   cd50   cc cc 76 00   
+   cd54   00 00 78 cc           DB 000H,000H,078H,0CCH,0FCH,0C0H,078H,000H ;e
+   cd58   fc c0 78 00   
+   cd5c   38 6c 60 f0           DB 038H,06CH,060H,0F0H,060H,060H,0F0H,000H ;f
+   cd60   60 60 f0 00   
+   cd64   00 00 76 cc           DB 000H,000H,076H,0CCH,0CCH,07CH,00CH,0F8H ;g
+   cd68   cc 7c 0c f8   
+   cd6c   e0 60 6c 76           DB 0E0H,060H,06CH,076H,066H,066H,0E6H,000H ;h
+   cd70   66 66 e6 00   
+   cd74   30 00 70 30           DB 030H,000H,070H,030H,030H,030H,078H,000H ;i
+   cd78   30 30 78 00   
+   cd7c   0c 00 0c 0c           DB 00CH,000H,00CH,00CH,00CH,0CCH,0CCH,078H ;j
+   cd80   0c cc cc 78   
+   cd84   e0 60 66 6c           DB 0E0H,060H,066H,06CH,078H,06CH,0E6H,000H ;k
+   cd88   78 6c e6 00   
+   cd8c   70 30 30 30           DB 070H,030H,030H,030H,030H,030H,078H,000H ;l
+   cd90   30 30 78 00   
+   cd94   00 00 cc fe           DB 000H,000H,0CCH,0FEH,0FEH,0D6H,0C6H,000H ;m
+   cd98   fe d6 c6 00   
+   cd9c   00 00 f8 cc           DB 000H,000H,0F8H,0CCH,0CCH,0CCH,0CCH,000H ;n
+   cda0   cc cc cc 00   
+   cda4   00 00 78 cc           DB 000H,000H,078H,0CCH,0CCH,0CCH,078H,000H ;o
+   cda8   cc cc 78 00   
+   cdac   00 00 dc 66           DB 000H,000H,0DCH,066H,066H,07CH,060H,0F0H ;p
+   cdb0   66 7c 60 f0   
+   cdb4   00 00 76 cc           DB 000H,000H,076H,0CCH,0CCH,07CH,00CH,01EH ;q
+   cdb8   cc 7c 0c 1e   
+   cdbc   00 00 dc 76           DB 000H,000H,0DCH,076H,066H,060H,0F0H,000H ;r
+   cdc0   66 60 f0 00   
+   cdc4   00 00 7c c0           DB 000H,000H,07CH,0C0H,078H,00CH,0F8H,000H ;s
+   cdc8   78 0c f8 00   
+   cdcc   10 30 7c 30           DB 010H,030H,07CH,030H,030H,034H,018H,000H ;t
+   cdd0   30 34 18 00   
+   cdd4   00 00 cc cc           DB 000H,000H,0CCH,0CCH,0CCH,0CCH,076H,000H ;u
+   cdd8   cc cc 76 00   
+   cddc   00 00 cc cc           DB 000H,000H,0CCH,0CCH,0CCH,078H,030H,000H ;v
+   cde0   cc 78 30 00   
+   cde4   00 00 c6 d6           DB 000H,000H,0C6H,0D6H,0FEH,0FEH,06CH,000H ;w
+   cde8   fe fe 6c 00   
+   cdec   00 00 c6 6c           DB 000H,000H,0C6H,06CH,038H,06CH,0C6H,000H ;x
+   cdf0   38 6c c6 00   
+   cdf4   00 00 cc cc           DB 000H,000H,0CCH,0CCH,0CCH,07CH,00CH,0F8H ;y
+   cdf8   cc 7c 0c f8   
+   cdfc   00 00 fc 98           DB 000H,000H,0FCH,098H,030H,064H,0FCH,000H ;z
+   ce00   30 64 fc 00   
+   ce04   1c 30 30 e0           DB 01CH,030H,030H,0E0H,030H,030H,01CH,000H ;{
+   ce08   30 30 1c 00   
+   ce0c   18 18 18 00           DB 018H,018H,018H,000H,018H,018H,018H,000H ;|
+   ce10   18 18 18 00   
+   ce14   e0 30 30 1c           DB 0E0H,030H,030H,01CH,030H,030H,0E0H,000H ;}
+   ce18   30 30 e0 00   
+   ce1c   76 dc 00 00           DB 076H,0DCH,000H,000H,000H,000H,000H,000H ;~
+   ce20   00 00 00 00   
+   ce24   00 10 38 6c           DB 000H,010H,038H,06CH,0C6H,0C6H,0FEH,00CH ;DEL
+   ce28   c6 c6 fe 0c   
+                                ;
+   ce2c                 CHARS_END:
+                        
+   ce2c                 PL_CHARS:
+                        
+   ce2c                 PL_CHARS_END:
+                        
+   ce2c                 PS2_SCANCODES:
+   ce2c   0e 60 7e      		DB 0EH, '`', '~'
+   ce2f   16 31 21      		DB 16H, '1', '!'
+   ce32   1e 32 40      		DB 1EH, '2', '@'
+   ce35   26 33 23      		DB 26H,	'3', '#'
+   ce38   25 34 24      		DB 25H,	'4', '$'
+   ce3b   2e 35 25      		DB 2EH,	'5', '%'
+   ce3e   36 36 5e      		DB 36H, '6', '^'
+   ce41   3d 37 26      		DB 3DH,	'7', '&'
+   ce44   3e 38 2a      		DB 3EH, '8', '*'
+   ce47   46 39 28      		DB 46H, '9', '('
+   ce4a   45 30 29      		DB 45H,	'0', ')'
+   ce4d   4e 2d 5f      		DB 4EH, '-', '_'
+   ce50   55 3d 2b      		DB 55H, '=', '+'
+   ce53   66 08 08      		DB 66H, 08H, 08H				;Bacspace here!!!!
+   ce56   0d 09 09      		DB 0DH, 09H, 09H				;TAB here!!!!!
+   ce59   15 71 51      		DB 15H, 'q', 'Q'
+   ce5c   1d 77 57      		DB 1DH, 'w', 'W'
+   ce5f   24 65 45      		DB 24H, 'e', 'E'
+   ce62   2d 72 52      		DB 2DH, 'r', 'R'
+   ce65   2c 74 54      		DB 2CH, 't', 'T'
+   ce68   35 79 59      		DB 35H, 'y', 'Y'
+   ce6b   3c 75 55      		DB 3CH, 'u', 'U'
+   ce6e   43 69 49      		DB 43H, 'i', 'I'
+   ce71   44 6f 4f      		DB 44H, 'o', 'O'
+   ce74   4d 70 50      		DB 4DH, 'p', 'P'
+   ce77   54 5b 7b      		DB 54H, '[', '{'
+   ce7a   5b 5d 7d      		DB 5BH, ']', '}'
+   ce7d   58 00 00      		DB 58H, 00H, 00H				;CAPSLOCK here!!!!
+   ce80   1c 61 41      		DB 1CH, 'a', 'A'
+   ce83   1b 73 53      		DB 1BH, 's', 'S'
+   ce86   23 64 44      		DB 23H, 'd', 'D'
+   ce89   2b 66 46      		DB 2BH, 'f', 'F'
+   ce8c   34 67 47      		DB 34H, 'g', 'G'
+   ce8f   33 68 48      		DB 33H, 'h', 'H'
+   ce92   3b 6a 4a      		DB 3BH, 'j', 'J'
+   ce95   42 6b 4b      		DB 42H, 'k', 'K'
+   ce98   4b 6c 4c      		DB 4BH, 'l', 'L'
+   ce9b   4c 3b 3a      		DB 4CH, ';', ':'
+   ce9e   52 27 22      		DB 52H, 27H, 22H				; ' and "
+   cea1   5a 0d 0d      		DB 5AH, 0DH, 0DH				;ENTER here!!!!!
+   cea4   1a 7a 5a      		DB 1AH, 'z', 'Z'
+   cea7   22 78 58      		DB 22H, 'x', 'X'
+   ceaa   21 63 43      		DB 21H, 'c', 'C'
+   cead   2a 76 56      		DB 2AH, 'v', 'V'
+   ceb0   32 62 42      		DB 32H, 'b', 'B'
+   ceb3   31 6e 4e      		DB 31H, 'n', 'N'
+   ceb6   3a 6d 4d      		DB 3AH, 'm', 'M'
+   ceb9   41 2c 3c      		DB 41H, ',', '<'
+   cebc   49 2e 3e      		DB 49H, '.', '>'
+   cebf   4a 2f 3f      		DB 4AH, '/', '?'
+   cec2   29 20 20      		DB 29H, ' ', ' '
+   cec5   76 03 03      		DB 76H, 03H, 03H				;Ctrl+C
+   cec8                 PS2_SCANCODES_END: 
+                        
+   cec8   21 80 ca      DIRECT: LXI  H,TAB1-1                   ;*** DIRECT ***
+                        ;
+   cecb                 EXEC:                                   ;*** EXEC ***
+   cecb   cd 5f c2      EX0:    CALL IGNBLK                     ;IGNORE LEADING BLANKS
+   cece   d5                    PUSH D                          ;SAVE POINTER
+   cecf   1a            EX1:    LDAX D                          ;IF FOUND '.' IN STRING
+   ced0   13                    INX  D                          ;BEFORE ANY MISMATCH
+   ced1   fe 2e                 CPI  2EH                        ;WE DECLARE A MATCH
+   ced3   ca ec ce              JZ   EX3
+   ced6   23                    INX  H                          ;HL->TABLE
+   ced7   be                    CMP  M                          ;IF MATCH, TEST NEXT
+   ced8   ca cf ce              JZ   EX1
+   cedb   3e 7f                 MVI  A,07FH                     ;ELSE SEE IF BIT 7
+   cedd   1b                    DCX  D                          ;OF TABLE IS SET, WHICH
+   cede   be                    CMP  M                          ;IS THE JUMP ADDR. (HI)
+   cedf   da f3 ce              JC   EX5                        ;C:YES, MATCHED
+   cee2   23            EX2:    INX  H                          ;NC:NO, FIND JUMP ADDR.
+   cee3   be                    CMP  M
+   cee4   d2 e2 ce              JNC  EX2
+   cee7   23                    INX  H                          ;BUMP TO NEXT TAB. ITEM
+   cee8   d1                    POP  D                          ;RESTORE STRING POINTER
+   cee9   c3 cb ce              JMP  EX0                        ;TEST AGAINST NEXT ITEM
+   ceec   3e 7f         EX3:    MVI  A,07FH                     ;PARTIAL MATCH, FIND
+   ceee   23            EX4:    INX  H                          ;JUMP ADDR., WHICH IS
+   ceef   be                    CMP  M                          ;FLAGGED BY BIT 7
+   cef0   d2 ee ce              JNC  EX4
+   cef3   7e            EX5:    MOV  A,M                        ;LOAD HL WITH THE JUMP
+   cef4   23                    INX  H                          ;ADDRESS FROM THE TABLE
+   cef5   6e                    MOV  L,M
+                        ;        ANI  7FH                        ;MASK OFF BIT 7
+   cef6   67                    MOV  H,A
+   cef7   f1                    POP  PSW                        ;CLEAN UP THE GABAGE
+   cef8   e9                    PCHL                            ;AND WE GO DO IT
+                        
+                        ;Interrupt routines
+   cef9                 UART_RX_ISR:
+   cef9   f5            		PUSH PSW						;Save condition bits and accumulator
+   cefa   e5                    PUSH H
+   cefb   d5                    PUSH D
+   cefc   d1                    POP D
+   cefd   e1                    POP H        
+   cefe   f1            		POP PSW							;Restore machine status
+   ceff   fb                    EI                              ;Re-enable interrupts
+   cf00   c9            		RET								;Return to interrupted program
+                        
+   cf01                 UART_TX_ISR:
+   cf01   f5            		PUSH PSW						;Save condition bits and accumulator
+   cf02   e5                    PUSH H
+   cf03   d5                    PUSH D
+   cf04   d1                    POP D
+   cf05   e1                    POP H        
+   cf06   f1            		POP PSW							;Restore machine status
+   cf07   fb                    EI                              ;Re-enable interrupts
+   cf08   c9            		RET								;Return to interrupted program
+                        
+   cf09                 KBD_ISR:
+   cf09   f5            		PUSH PSW						;Save condition bits and accumulator
+   cf0a   e5                    PUSH H
+   cf0b   d5                    PUSH D
+                                ;IN KBD_STATUS                  ;NO NEED TO TEST, INTERRUPT MODE!
+                                ;ANI 01H                         ;Check if output buffer full
+                                ;JZ KBD_ISR_RET                  ;Output buffer empty, end ISR
+   cf0c   db 50                 IN KBD_DATA                     ;Get keyboard data
+   cf0e   32 81 21              STA KBDDATA                     ;Save received code
+   cf11                 KBD_ISR_RET:        
+   cf11   d1                    POP D
+   cf12   e1                    POP H        
+   cf13   f1            		POP PSW							;Restore machine status
+   cf14   fb                    EI                              ;Re-enable interrupts
+   cf15   c9            		RET								;Return to interrupted program
+                        
+   cf16                 TIMER_ISR:
+   cf16   f5            		PUSH PSW						;Save condition bits and accumulator
+   cf17   e5                    PUSH H
+   cf18   d5                    PUSH D
+   cf19   2a 7d 21              LHLD SYSTICK                    ;Load SYSTICK variable to HL
+   cf1c   23                    INX H                           ;Increment HL
+   cf1d   22 7d 21              SHLD SYSTICK                    ;Save HL in SYSTICK variable
+   cf20   3e 00          	 	MVI  A, 00H                     ;Reload. LSB, interrupt every 20ms
+   cf22   d3 48           		OUT  COUNT_REG_0_8253
+   cf24   3e a0           		MVI  A, 0A0H                    ;Reload. MSB, interrupt every 20ms (0xF0 for 30 ms)
+   cf26   d3 48           		OUT  COUNT_REG_0_8253                
+   cf28   d1                    POP D
+   cf29   e1                    POP H        
+   cf2a   f1            		POP PSW							;Restore machine status
+   cf2b   fb                    EI                              ;Re-enable interrupts
+   cf2c   c9            		RET								;Return to interrupted program
+                        		
+   cf2d                 RTC_ISR:
+   cf2d   f5            		PUSH PSW						;Save condition bits and accumulator
+   cf2e   e5                    PUSH H
+   cf2f   d5                    PUSH D
+   cf30   3e 00                 MVI A, 00H                      ;Clear the RTC interrupt flag to change state of the line
+   cf32   d3 0d                 OUT RTC_CTRLD_REG
+   cf34   2a 7f 21              LHLD RTCTICK                    ;Load SYSTICK variable to HL
+   cf37   23                    INX H                           ;Increment HL
+   cf38   22 7f 21              SHLD RTCTICK                    ;Save HL in SYSTICK variable        
+   cf3b   d1                    POP D
+   cf3c   e1                    POP H        
+   cf3d   f1            		POP PSW							;Restore machine status
+   cf3e   fb                    EI                              ;Re-enable interrupts
+   cf3f   c9            		RET								;Return to interrupted program
+                        
+                        ;Interrupt vectors
+   cf40                 IR0_VECT:
+   ffe0                 		ORG  0FFE0H
+   ffe0   c3 09 cf      		JMP KBD_ISR
+   ffe3   00                    NOP
+   ffe4                 IR1_VECT:
+   ffe4   c3 01 cf      		JMP UART_TX_ISR
+   ffe7   00                    NOP
+   ffe8                 IR2_VECT:
+   ffe8   c3 f9 ce      		JMP UART_RX_ISR
+   ffeb   00                    NOP
+   ffec                 IR3_VECT:
+   ffec   c3 2d cf      		JMP RTC_ISR
+   ffef   00                    NOP
+   fff0                 IR4_VECT:
+   fff0   c3 16 cf      		JMP TIMER_ISR
+   fff3   00                    NOP
+   fff4                 IR5_VECT:
+   fff4   fb                    EI	
+   fff5   c9                    RET
+   fff6   00                    NOP
+   fff7   00                    NOP
+   fff8                 IR6_VECT:
+   fff8   fb                    EI	
+   fff9   c9                    RET
+   fffa   00                    NOP
+   fffb   00                    NOP
+   fffc                 IR7_VECT
+   fffc   fb                    EI	
+   fffd   c9                    RET
+   fffe   00                    NOP
+   ffff   00                    NOP
+                        ;
+   0000                 LSTROM:                                 ;ALL ABOVE CAN BE ROM
+                        ;       ORG  1000H                      ;HERE DOWN MUST BE RAM
+   0100                         ORG  0100H
+   0100   ff            OCSW    DB   0FFH      					;SWITCH FOR OUTPUT
+   0101                 OUTIO:  DS   3
+   0104                 WAITIO: DS   10
+   010e                 INPIO:  DS   4
+   0112                 CURRNT: DS   2                          ;POINTS TO CURRENT LINE
+   0114                 STKGOS: DS   2                          ;SAVES SP IN 'GOSUB'
+   0116                 VARNXT: DS   2                          ;TEMP STORAGE
+   0118                 STKINP: DS   2                          ;SAVES SP IN 'INPUT'
+   011a                 LOPVAR: DS   2                          ;'FOR' LOOP SAVE AREA
+   011c                 LOPINC: DS   2                          ;INCREMENT
+   011e                 LOPLMT: DS   2                          ;LIMIT
+   0120                 LOPLN:  DS   2                          ;LINE NUMBER
+   0122                 LOPPT:  DS   2                          ;TEXT POINTER
+   0124                 RANPNT: DS   2                          ;RANDOM NUMBER POINTER
+   0126                 TXTUNF: DS   2                          ;->UNFILLED TEXT AREA
+   0128                 TXTBGN: DS   2                          ;TEXT SAVE AREA BEGINS
+                        ;       ORG  1366H
+   1f00                         ORG  1F00H
+   1f00                 TXTEND: DS   0                          ;TEXT SAVE AREA ENDS
+   1f00                 VARBGN: DS   55                         ;VARIABLE @(0)
+   1f37                 BUFFER: DS   64                         ;INPUT BUFFER
+   1f77                 BUFEND: DS   1
+   1f78                 CFLBA3	DS	 1
+   1f79                 CFLBA2	DS	 1
+   1f7a                 CFLBA1	DS	 1
+   1f7b                 CFLBA0	DS	 1                          ;BUFFER ENDS
+   1f7c                 BLKDAT: DS   512                        ;BUFFER FOR SECTOR TRANSFER
+   217c                 BLKENDL DS   1                          ;BUFFER ENDS
+   217d                 SYSTICK DS   2                          ;Systick timer
+   217f                 RTCTICK DS   2							;RTC tick timer/uptime
+   2181                 KBDDATA DS   1                          ;Keyboard last received code
+   2182                 KBDKRFL DS	 1							;Keyboard key release flag
+   2183                 KBDSFFL DS	 1							;Keyboard Shift flag
+   2184                 KBDOLD	DS	 1							;Keyboard old data
+   2185                 KBDNEW	DS	 1							;Keyboard new data
+   2186                 CURX    DS   1                          ;VDP cursor x position
+   2187                 CURY    DS   1                          ;VDP cursor y position
+   2188                 STKLMT: DS   1                          ;TOP LIMIT FOR STACK
+                        ;       ORG  1400H
+   7fff                         ORG  7FFFH
+   7fff                 STACK:  DS   0                          ;STACK STARTS HERE
+                        ;
+   000d                 CR      EQU  0DH
+   000a                 LF      EQU  0AH
+                        
+   7fff                         END
+c6d9  ABS           c2dd  AHOW          c832  ASORRY        c803  AWHAT     
+0001  BCD           0000  BIN           1f7c  BLKDAT        217c  BLKENDL   
+1f77  BUFEND        1f37  BUFFER        0090  CFBASE        c046  CFCHERR   
+c09b  CFINFO        c010  CFINIT        1f7b  CFLBA0        1f7a  CFLBA1    
+1f79  CFLBA2        1f78  CFLBA3        ca66  CFMSG1        c05d  CFNERR    
+c05e  CFREAD        c06f  CFREADE       0090  CFREG0        0091  CFREG1    
+0092  CFREG2        0093  CFREG3        0094  CFREG4        0095  CFREG5    
+0096  CFREG6        0097  CFREG7        c0a9  CFRSECT       c082  CFSLBA    
+c03e  CFWAIT        c070  CFWRITE       c081  CFWRITEE      c0c1  CFWSECT   
+cb2c  CHARS         ce2c  CHARS_END     c7b4  CHGSGN        ca2b  CHKIO     
+c7b1  CHKSGN        ca44  CI1           c7cc  CK1           c7c6  CKHLDE    
+c257  COMP          004b  CONTR_W_8253    0000  COUNTER_LATCHING    0048  COUNT_REG_0_8253
+0049  COUNT_REG_1_8253    004a  COUNT_REG_2_8253    000d  CR            c245  CRLF      
+0112  CURRNT        2186  CURX          2187  CURY          c58c  DEFLT     
+c222  DELAY         cec8  DIRECT        c794  DIVIDE        c79f  DV1       
+c7a1  DV2           c7fc  ENDCHK        c806  ERROR         cecb  EX0       
+cecf  EX1           cee2  EX2           ceec  EX3           ceee  EX4       
+cef3  EX5           cecb  EXEC          c24f  EXPR          c5a0  EXPR1     
+c5e4  EXPR2         c620  EXPR3         c684  EXPR4         c7f2  FI1       
+c7fb  FI2           c7e9  FIN           c267  FINISH        c884  FL1       
+c89b  FL2           c87c  FNDLN         c884  FNDLP         c89a  FNDNXT    
+c89c  FNDSKP        c44d  FOR           c45d  FR1           c469  FR2       
+c46f  FR3           c472  FR4           c475  FR5           c48a  FR7       
+c4ab  FR8           c838  GETLN         c83e  GL1           c865  GL3       
+c874  GL4           c410  GOSUB         c3a1  GOTO          c2e3  HOW       
+c517  IFF           c25f  IGNBLK        c99c  INIT          c730  INP       
+c528  INPERR        010e  INPIO         ca57  INPIO_ROM     c532  INPUT     
+c532  IP1           c542  IP2           c554  IP3           c580  IP4       
+c589  IP5           cf40  IR0_VECT      ffe4  IR1_VECT      ffe8  IR2_VECT  
+ffec  IR3_VECT      fff0  IR4_VECT      fff4  IR5_VECT      fff8  IR6_VECT  
+fffc  IR7_VECT      c17c  KBD2ASCII     c1e1  KBD2A_CHKKRSETSF    c18f  KBD2A_CHKSFT
+c1c1  KBD2A_CHKSHFFLSET    c1f9  KBD2A_CLRDATA_RETURN    c1f1  KBD2A_CLRFLDATA_RETURN    c1b9  KBD2A_CLRKRFL
+c1d1  KBD2A_LOOKUP    c199  KBD2A_SVNEWDATA    c0e9  KBDCRTLSET    2181  KBDDATA   
+c0d9  KBDINIT       2182  KBDKRFL       ca71  KBDMSG        2185  KBDNEW    
+2184  KBDOLD        c1ff  KBDSCANTABLE    c21d  KBDSCANTABLE_FOUND    c204  KBDSCANTABLE_LOOP
+c217  KBDSCANTABLE_REL    2183  KBDSFFL       c16c  KBDWAITINBUF    c174  KBDWAITOUTBUF
+0051  KBD_CMD       0050  KBD_DATA      cf09  KBD_ISR       cf11  KBD_ISR_RET
+0051  KBD_STATUS    c592  LET           000a  LF            c3b2  LIST      
+011c  LOPINC        011e  LOPLMT        0120  LOPLN         0122  LOPPT     
+011a  LOPVAR        c3bb  LS1           0000  LSTROM        c59d  LT1       
+c232  MC_LOOP       c950  MD1           c22f  MEMCOPY       0000  MODE_0    
+0002  MODE_1        0004  MODE_2        0006  MODE_3        0008  MODE_4    
+000a  MODE_5        ca5b  MSG1          c948  MVDOWN        c93d  MVUP      
+c373  NEW           c4b2  NEXT          c4bb  NX0           c4f7  NX1       
+c50d  NX2           c4d5  NX3           c4e7  NX4           c50b  NX5       
+ca11  OC2           ca16  OC3           0100  OCSW          c2e8  OK        
+c247  OUTC          c6ef  OUTCMD        0101  OUTIO         ca4a  OUTIO_ROM 
+c69b  PARN          c778  PASPRM        c9f4  PATLOP        c759  PEEK      
+c224  PETLA_DEL_WEWN    0059  PIC_8259_HIGH    0058  PIC_8259_LOW    ce2c  PL_CHARS  
+ce2c  PL_CHARS_END    c8ef  PN1           c8f6  PN2           c906  PN3       
+c907  PN4           c915  PN5           c91b  PN6           c73f  POKE      
+c957  POPA          00e0  PORT_8212     c971  PP1           c3e2  PR0       
+c3ee  PR1           c3d7  PR2           c3f4  PR3           c3ff  PR6       
+c405  PR8           c3ca  PRINT         c928  PRTLN         c8e4  PRTNUM    
+c8a6  PRTSTG        c8a7  PS1           ce2c  PS2_SCANCODES    cec8  PS2_SCANCODES_END
+c999  PU1           c973  PUSHA         c2dc  QHOW          c831  QSORRY    
+c8bb  QT1           c8c4  QT2           c8c8  QT3           c8d2  QT4       
+c8e3  QT5           c8b4  QTSTG         c802  QWHAT         c6c9  RA1       
+0124  RANPNT        c513  REM           c432  RETURN        0010  RL_LSB_ONLY
+0030  RL_LSB_THEN_MSB    0020  RL_MSB_ONLY    c6ac  RND           c2f7  RSTART    
+217f  RTCTICK       0007  RTC_10_DAY_REG    0005  RTC_10_HOUR_REG    0003  RTC_10_MIN_REG
+0009  RTC_10_MON_REG    0001  RTC_10_SEC_REG    000b  RTC_10_YEAR_REG    0006  RTC_1_DAY_REG
+0004  RTC_1_HOUR_REG    0002  RTC_1_MIN_REG    0008  RTC_1_MON_REG    0000  RTC_1_SEC_REG
+000a  RTC_1_YEAR_REG    000d  RTC_CTRLD_REG    000e  RTC_CTRLE_REG    000f  RTC_CTRLF_REG
+cf2d  RTC_ISR       000c  RTC_WEEK_REG    c382  RUN           c388  RUNNXL    
+c398  RUNSML        c391  RUNTSL        0002  RxRDY_MASK    0000  SEL_COUNTER_0
+0040  SEL_COUNTER_1    0080  SEL_COUNTER_2    c7d0  SETVAL        c003  SET_PC    
+c6e2  SIZE          c2f1  SORRY         c25f  SS1           c2fa  ST1       
+c30a  ST2           c313  ST3           c34a  ST4           7fff  STACK     
+c007  START         0114  STKGOS        0118  STKINP        2188  STKLMT    
+c37c  STOP          c7aa  SUBDE         c7e6  SV1           217d  SYSTICK   
+ca81  TAB1          ca91  TAB2          cae6  TAB4          cb08  TAB5      
+cb0e  TAB6          cb16  TAB8          c2a3  TC1           c2ae  TC2       
+cf16  TIMER_ISR     c2b9  TN1           c23d  TSTC          c2b2  TSTNUM    
+c26f  TSTV          c293  TV1           0128  TXTBGN        1f00  TXTEND    
+0126  TXTUNF        0001  TxRDY_MASK    0041  UART_8251_CTRL    0040  UART_8251_DATA
+cef9  UART_RX_ISR    cf01  UART_TX_ISR    c763  USR           c78e  USRET     
+1f00  VARBGN        0116  VARNXT        c70d  WAITCM        0104  WAITIO    
+ca4d  WAITIO_ROM    c2eb  WHAT          c5a6  XP11          c5ac  XP12      
+c5b2  XP13          c5b9  XP14          c5c1  XP15          c5c7  XP16      
+c5cd  XP17          c5cf  XP18          c5ef  XP21          c5f4  XP22      
+c5f7  XP23          c600  XP24          c611  XP25          c616  XP26      
+c623  XP31          c642  XP32          c64a  XP33          c655  XP34      
+c676  XP35          c68a  XP40          c695  XP41          c6a8  XP42      
+c6a9  XP43          
+

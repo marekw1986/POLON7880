@@ -1954,18 +1954,18 @@ INIT:   STA  OCSW
         MVI A, 00H
         STA  KBDDATA
         ;Initialize 8253
-  		MVI  A, 36H                     ;TIMER0 - systick
-  		OUT  CONTR_W_8253               ;Timer 0, write LSB then MSB, mode 3, binary 
- 	 	MVI  A, 00H                     ;LSB, interrupt every 20ms
-  		OUT  COUNT_REG_0_8253
-  		MVI  A, 0A0H                    ;MSB, interrupt every 20ms (0xF0 for 30 ms)
-  		OUT  COUNT_REG_0_8253
-        MVI  A, 0B0H                    ;TIMER2 - baudrate generator for 8251
-        OUT CONTR_W_8253                ;Timer 2, write LSB then MSB, mode 0, binary
- 	 	MVI  A, 0DH                     ;LSB
-  		OUT  COUNT_REG_2_8253
-  		MVI  A, 00H                     ;MSB
-  		OUT  COUNT_REG_2_8253        
+		MVI  A, 30H                     ;TIMER0 - systick
+		OUT  CONTR_W_8253               ;Timer 0, write LSB then MSB, mode 0, binary 
+		MVI  A, 00H                     ;LSB, interrupt every 20ms
+		OUT  COUNT_REG_0_8253
+		MVI  A, 0A0H                    ;MSB, interrupt every 20ms (0xF0 for 30 ms)
+		OUT  COUNT_REG_0_8253	
+		MVI  A, 0B6H                    ;TIMER2 - baudrate generator for 8251
+		OUT CONTR_W_8253                ;Timer 2, write LSB then MSB, mode 3, binary
+		MVI  A, 0DH                     ;LSB
+		OUT  COUNT_REG_2_8253
+		MVI  A, 00H                     ;MSB
+		OUT  COUNT_REG_2_8253     
         ;Initialize 8251
         MVI	 A, 4EH
         OUT	 UART_8251_CTRL
@@ -2011,14 +2011,14 @@ INIT:   STA  OCSW
         
 
 ;       Initialize keyboard
-        ;LXI D, KBDMSG                       ;Print KBD Init message
-        ;CALL PRTSTG
-        ;CALL KBDINIT                        ;Call init routine
-        ;MOV L, B                            ;Check and print result code
-        ;MVI H, 00H
-        ;MVI C, 02H
-        ;CALL PRTNUM
-        ;CALL CRLF
+;        LXI D, KBDMSG                       ;Print KBD Init message
+;        CALL PRTSTG
+;        CALL KBDINIT                        ;Call init routine
+;        MOV L, B                            ;Check and print result code
+;        MVI H, 00H
+;        MVI C, 02H
+;        CALL PRTNUM
+;        CALL CRLF
         ;Enable interrupts
         ;EI
         
@@ -2051,9 +2051,9 @@ OC3:    IN   UART_8251_CTRL             ;COME HERE TO DO OUTPUT
 ;
 CHKIO:  IN   UART_8251_CTRL             ;*** CHKIO ***
         NOP                             ;STATUS BIT FLIPPED?
-        ANI  RxRDY_MASK                         ;MASK STATUS BIT
+        ANI  RxRDY_MASK                 ;MASK STATUS BIT
         RZ                              ;NOT READY, RETURN "Z"
-        IN   UART_8251_DATA                         ;READY, READ DATA
+        IN   UART_8251_DATA             ;READY, READ DATA
 ;CHKIO:	PUSH B
 ;		PUSH D
 ;		PUSH H
@@ -2061,8 +2061,8 @@ CHKIO:  IN   UART_8251_CTRL             ;*** CHKIO ***
 ;		POP H
 ;		POP D
 ;		POP B
-		CPI  00H
-		RZ
+;		CPI  00H
+;		RZ
         ANI  7FH                        ;MASK BIT 7 OFF
         CPI  0FH                        ;IS IT CONTROL-O?
         JNZ  CI1                        ;NO, MORE CHECKING
@@ -2096,8 +2096,7 @@ CFMSG1: DB   'CF '
 KBDMSG: DB   'KEYBOARD '
         DB   'INIT: '
         DB   CR
-        
-CRTMSG: DB	 'Two roads diverged in a yellow wood, And sorry I could not travel both And be one traveler, long I stood And looked down one as far as I could To where it bent in the undergrowth;'
+
 ;
 ;*************************************************************
 ;
@@ -2483,9 +2482,9 @@ TIMER_ISR:
         INX H                           ;Increment HL
         SHLD SYSTICK                    ;Save HL in SYSTICK variable
  	 	MVI  A, 00H                     ;Reload. LSB, interrupt every 20ms
-  		OUT  COUNT_REG_1_8253
+  		OUT  COUNT_REG_0_8253
   		MVI  A, 0A0H                    ;Reload. MSB, interrupt every 20ms (0xF0 for 30 ms)
-  		OUT  COUNT_REG_1_8253                
+  		OUT  COUNT_REG_0_8253                
         POP D
         POP H        
 		POP PSW							;Restore machine status
