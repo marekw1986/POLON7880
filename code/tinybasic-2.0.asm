@@ -2011,14 +2011,14 @@ INIT:   STA  OCSW
         
 
 ;       Initialize keyboard
-;        LXI D, KBDMSG                       ;Print KBD Init message
-;        CALL PRTSTG
-;        CALL KBDINIT                        ;Call init routine
-;        MOV L, B                            ;Check and print result code
-;        MVI H, 00H
-;        MVI C, 02H
-;        CALL PRTNUM
-;        CALL CRLF
+        ;LXI D, KBDMSG                       ;Print KBD Init message
+        ;CALL PRTSTG
+        ;CALL KBDINIT                        ;Call init routine
+        ;MOV L, B                            ;Check and print result code
+        ;MVI H, 00H
+        ;MVI C, 02H
+        ;CALL PRTNUM
+        ;CALL CRLF
         ;Enable interrupts
         ;EI
         
@@ -2497,9 +2497,9 @@ RTC_ISR:
         PUSH D
         MVI A, 00H                      ;Clear the RTC interrupt flag to change state of the line
         OUT RTC_CTRLD_REG
-        LHLD RTCTICK                    ;Load SYSTICK variable to HL
+        LHLD RTCTICK                    ;Load RTCTICK variable to HL
         INX H                           ;Increment HL
-        SHLD RTCTICK                    ;Save HL in SYSTICK variable        
+        SHLD RTCTICK                    ;Save HL in RTCTICK variable        
         POP D
         POP H        
 		POP PSW							;Restore machine status
