@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE eagle SYSTEM "eagle.dtd">
-<eagle version="7.2.0">
+<eagle version="7.7.0">
 <drawing>
 <settings>
 <setting alwaysvectorfont="no"/>
@@ -19229,11 +19229,6 @@ Source: con-hirose.lbr from Bob Starr &amp;lt;rtzaudio@mindspring.com&amp;gt;</d
 <wire x1="-127" y1="180.34" x2="-132.08" y2="180.34" width="0.1524" layer="91"/>
 <label x="-132.08" y="180.34" size="1.4224" layer="95" rot="R180" xref="yes"/>
 </segment>
-<segment>
-<pinref part="IC3" gate="G$1" pin="RD"/>
-<wire x1="-104.14" y1="63.5" x2="-114.3" y2="63.5" width="0.1524" layer="91"/>
-<label x="-114.3" y="63.5" size="1.4224" layer="95" rot="R180" xref="yes"/>
-</segment>
 </net>
 <net name="WR" class="0">
 <segment>
@@ -19245,11 +19240,6 @@ Source: con-hirose.lbr from Bob Starr &amp;lt;rtzaudio@mindspring.com&amp;gt;</d
 <pinref part="U$1" gate="G$1" pin="!MEMW"/>
 <wire x1="-127" y1="177.8" x2="-132.08" y2="177.8" width="0.1524" layer="91"/>
 <label x="-132.08" y="177.8" size="1.4224" layer="95" rot="R180" xref="yes"/>
-</segment>
-<segment>
-<pinref part="IC3" gate="G$1" pin="WR"/>
-<wire x1="-104.14" y1="66.04" x2="-114.3" y2="66.04" width="0.1524" layer="91"/>
-<label x="-114.3" y="66.04" size="1.4224" layer="95" rot="R180" xref="yes"/>
 </segment>
 </net>
 <net name="A14" class="0">
@@ -19424,6 +19414,11 @@ Source: con-hirose.lbr from Bob Starr &amp;lt;rtzaudio@mindspring.com&amp;gt;</d
 <wire x1="-86.36" y1="-83.82" x2="-91.44" y2="-83.82" width="0.1524" layer="91"/>
 <label x="-91.44" y="-83.82" size="1.4224" layer="95" rot="R180" xref="yes"/>
 </segment>
+<segment>
+<pinref part="IC3" gate="G$1" pin="RD"/>
+<wire x1="-104.14" y1="63.5" x2="-114.3" y2="63.5" width="0.1524" layer="91"/>
+<label x="-114.3" y="63.5" size="1.4224" layer="95" rot="R180" xref="yes"/>
+</segment>
 </net>
 <net name="IO_WR" class="0">
 <segment>
@@ -19460,6 +19455,11 @@ Source: con-hirose.lbr from Bob Starr &amp;lt;rtzaudio@mindspring.com&amp;gt;</d
 <pinref part="CON1" gate="G$1" pin="/IOWR"/>
 <wire x1="-91.44" y1="-187.96" x2="-96.52" y2="-187.96" width="0.1524" layer="91"/>
 <label x="-96.52" y="-187.96" size="1.4224" layer="95" rot="R180" xref="yes"/>
+</segment>
+<segment>
+<pinref part="IC3" gate="G$1" pin="WR"/>
+<wire x1="-104.14" y1="66.04" x2="-114.3" y2="66.04" width="0.1524" layer="91"/>
+<label x="-114.3" y="66.04" size="1.4224" layer="95" rot="R180" xref="yes"/>
 </segment>
 </net>
 <net name="INTA" class="0">
