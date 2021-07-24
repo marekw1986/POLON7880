@@ -1978,7 +1978,7 @@ INIT:   STA  OCSW
         OUT	 PIC_8259_HIGH				;ICW2 is written to the high port of 8259
         MVI  A, 02H						;ICW4 - NOT special full nested mode, not buffored, master, automatic EOI, 8080 processor
         OUT  PIC_8259_HIGH				;ICW4 is written to the high port of 8259        
-        MVI  A, 0E7H					;OCW1 active TIMER, RTC and KBD interrupt
+        MVI  A, 0E7H					;OCW1 active TIMER and RTC, KBD interrupt DISABLED (0xE6 to enable)
         OUT  PIC_8259_HIGH				;OCW1 is written to the high port of 8259
         MVI  A, 80H						;OCW2 - Rotation of priorities, no explicit EOI
         OUT  PIC_8259_LOW				;OCW2 is written to the low port of 8259
@@ -2020,7 +2020,7 @@ INIT:   STA  OCSW
         ;CALL PRTNUM
         ;CALL CRLF
         ;Enable interrupts
-        ;EI
+        EI
         
 PATLOP:
         CALL CRLF
@@ -2514,7 +2514,7 @@ IR0_VECT:
         EI
         RET
         NOP
-        NOP
+        NOP        
 IR1_VECT:
 		;JMP UART_TX_ISR
         ;NOP
