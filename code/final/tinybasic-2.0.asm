@@ -1972,25 +1972,25 @@ INIT:   STA  OCSW
         MVI	 A, 27H
         OUT	 UART_8251_CTRL
         ;Initialize 8259
-        ;MVI  A, 0FFH					;ICW1 - LSB of IR0_VECT = 0xE0, level triggered, 4 byte intervals, one 8259, ICW4 needed
-        ;OUT  PIC_8259_LOW				;ICW1 is written to the low port of 8259
-        ;MVI  A, 0FFH					;ICW2, MSB of IR0_VECT
-        ;OUT	 PIC_8259_HIGH				;ICW2 is written to the high port of 8259
-        ;MVI  A, 02H						;ICW4 - NOT special full nested mode, not buffored, master, automatic EOI, 8080 processor
-        ;OUT  PIC_8259_HIGH				;ICW4 is written to the high port of 8259        
-        ;MVI  A, 9BH						;OCW1 active TIMER, RTC and KBD interrupt
-        ;OUT  PIC_8259_HIGH				;OCW1 is written to the high port of 8259
-        ;MVI  A, 80H						;OCW2 - Rotation of priorities, no explicit EOI
-        ;OUT  PIC_8259_LOW				;OCW2 is written to the low port of 8259
+        MVI  A, 0FFH					;ICW1 - LSB of IR0_VECT = 0xE0, level triggered, 4 byte intervals, one 8259, ICW4 needed
+        OUT  PIC_8259_LOW				;ICW1 is written to the low port of 8259
+        MVI  A, 0FFH					;ICW2, MSB of IR0_VECT
+        OUT	 PIC_8259_HIGH				;ICW2 is written to the high port of 8259
+        MVI  A, 02H						;ICW4 - NOT special full nested mode, not buffored, master, automatic EOI, 8080 processor
+        OUT  PIC_8259_HIGH				;ICW4 is written to the high port of 8259        
+        MVI  A, 0E7H					;OCW1 active TIMER and RTC, KBD interrupt DISABLED (0xE6 to enable)
+        OUT  PIC_8259_HIGH				;OCW1 is written to the high port of 8259
+        MVI  A, 80H						;OCW2 - Rotation of priorities, no explicit EOI
+        OUT  PIC_8259_LOW				;OCW2 is written to the low port of 8259
 ;        MVI  A, 4BH				    ;OCW3 - ESMM SMM RESET SPECIAL MASK, NO POLL COMMAND, RR_RIS_READ_IS_REG
 ;        OUT  PIC_8259_LOW				;OCW3 is written to the low port of 8259
         ;Initialize M6442B RTC
-        ;MVI  A, 04H                     ;30 AJD = 0, IRQ FLAG = 1 (required), BUSY = 0(?), HOLD = 0
-        ;OUT  RTC_CTRLD_REG
-        ;MVI  A, 06H                     ;Innterrupt mode, STD.P enabled, 1 s.
-        ;OUT  RTC_CTRLE_REG
-        ;MVI  A, 04H                     ;TEST = 0, 24h mode, STOP = 0, RESET = 0
-        ;OUT  RTC_CTRLF_REG
+        MVI  A, 04H                     ;30 AJD = 0, IRQ FLAG = 1 (required), BUSY = 0(?), HOLD = 0
+        OUT  RTC_CTRLD_REG
+        MVI  A, 06H                     ;Innterrupt mode, STD.P enabled, 1 s.
+        OUT  RTC_CTRLE_REG
+        MVI  A, 04H                     ;TEST = 0, 24h mode, STOP = 0, RESET = 0
+        OUT  RTC_CTRLF_REG
         		
         LXI  B, 3                       ;BYTES TO TRANSFER
         LXI  D, OUTIO_ROM               ;SOURCE
@@ -2011,16 +2011,16 @@ INIT:   STA  OCSW
         
 
 ;       Initialize keyboard
-;        LXI D, KBDMSG                       ;Print KBD Init message
-;        CALL PRTSTG
-;        CALL KBDINIT                        ;Call init routine
-;        MOV L, B                            ;Check and print result code
-;        MVI H, 00H
-;        MVI C, 02H
-;        CALL PRTNUM
-;        CALL CRLF
+        ;LXI D, KBDMSG                       ;Print KBD Init message
+        ;CALL PRTSTG
+        ;CALL KBDINIT                        ;Call init routine
+        ;MOV L, B                            ;Check and print result code
+        ;MVI H, 00H
+        ;MVI C, 02H
+        ;CALL PRTNUM
+        ;CALL CRLF
         ;Enable interrupts
-        ;EI
+        EI
         
 PATLOP:
         CALL CRLF
@@ -2497,9 +2497,9 @@ RTC_ISR:
         PUSH D
         MVI A, 00H                      ;Clear the RTC interrupt flag to change state of the line
         OUT RTC_CTRLD_REG
-        LHLD RTCTICK                    ;Load SYSTICK variable to HL
+        LHLD RTCTICK                    ;Load RTCTICK variable to HL
         INX H                           ;Increment HL
-        SHLD RTCTICK                    ;Save HL in SYSTICK variable        
+        SHLD RTCTICK                    ;Save HL in RTCTICK variable        
         POP D
         POP H        
 		POP PSW							;Restore machine status
@@ -2509,13 +2509,25 @@ RTC_ISR:
 ;Interrupt vectors
 IR0_VECT:
 		ORG  0FFE0H
-		JMP KBD_ISR
+		;JMP KBD_ISR
+        ;NOP
+        EI
+        RET
         NOP
+        NOP        
 IR1_VECT:
-		JMP UART_TX_ISR
+		;JMP UART_TX_ISR
+        ;NOP
+        EI
+        RET
+        NOP
         NOP
 IR2_VECT:
-		JMP UART_RX_ISR
+		;JMP UART_RX_ISR
+        ;NOP
+        EI
+        RET
+        NOP
         NOP
 IR3_VECT:
 		JMP RTC_ISR
