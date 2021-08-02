@@ -281,6 +281,11 @@ VDPINIT:
         MVI A, 84H                      ;SELECT REG4
         OUT VDP_MODE
         
+        ;CLEAR VRAM
+		LXI D, 0000H					;ZERO VRAM STARTING FROM 0x0000
+		LXI H, 4000H					;ZERO 16kB
+		CALL VDPZEROVRAM        
+        
         ; INITIALIZE VRAM
         LXI B, CHARS
         LXI D, 0000H + (32*8)
@@ -299,94 +304,74 @@ VDPINIT:
         MVI A, 0F1H                     ;REG7 (WHITE TEXT ON BLACK BACKGROUND)
         OUT VDP_MODE
         MVI A, 87H                      ;SELECT REG7
-        OUT VDP_MODE
-    
-        RET
-;Prints ASCII character from A on the screen.
-VDP_PUTC:
-        CPI 0DH                         ;Is it a return character?
-        JNZ VDP_PN                      ;If not, go to the next stage
-        MVI A, 00H                      ;If yes, CURX = 0
-        STA CURX
-        RET
-VDP_PN:
-        CPI 0AH                         ;Is it a newline character
-        JNZ VDP_CALC                    ;If not, go to the next stage
-        LDA CURY                        ;Load CURY to A
-        INR A                           ;Increment A
-        CPI SCREEN_MAX_Y                ;Compare A with max Y value
-        JNC VDP_STA_CURY                ;If it is below 24, just save
-        CALL VDP_1UP                    ;Scroll scrren content one line up
-        MVI A, SCREEN_MAX_Y-1           ;CURY is still the last line
-VDP_STA_CURY:
-        STA CURY                        ;Save current CURY value
-        RET                             ;Return
-VDP_CALC:
-        ;Calculate position in VRAM basing on CURX and CURY
-        MOV B, A                        ;Store current character in B
-        LDA CURY                        ;Load current CURY value to A
-        ;Put character
-        
-        LDA CURX                        ;Load CURX to A
-        INR A                           ;Increment A
-        CPI SCREEN_MAX_X				;Compare it with max value                          
-VPD_CALC_LOOP:
-
-        RET
-        
-VDP_1UP:
+        OUT VDP_MODE 
         RET
 
-ZEROVRAM:
-		MVI A, 00H
-		OUT VDP_MODE
-		NOP
-		NOP
-		MVI A, 40H
-		OUT VDP_MODE
-		NOP
-		NOP
-		LXI B, 4000H
-ZEROVRAML:
-		MVI A, 00H
-		OUT VDP_DATA
-		NOP
-		NOP
-		NOP
-		NOP
-		NOP
-		NOP
-		NOP
-		NOP
-		DCX B
-		MOV A, B
-		ORA C
-		JNZ ZEROVRAML
-		RET
+
+;CLEAR SCREEN
+VDPCLS:
+		LXI D, 0800H					;ZERO VRAM STARTING FROM 0x0800
+		LXI H, 03C0H					;ZERO 16kB
+		CALL VDPZEROVRAM
 		
+
+;VRAM ADDRES IN DE, DATA LENGTH IN HL        
+VDPZEROVRAM:
+        MOV A, E
+        OUT VDP_MODE
+        MOV A, D
+        ORI 40H
+        OUT VDP_MODE
+VDPZEROVRAML:
+        MVI A, 00H
+        OUT VDP_DATA
+        INX B
+        DCX H
+        MOV A, H
+        ORA L          
+        JNZ VDPZEROVRAML
+        RET
+        
+        
+VDPSCROLLUP:
+		;Mowe 12 lines
+		;Read them first
+        LXI B, BLKDAT
+        LXI D, 0828H
+        LXI H, 01E0H
+		CALL VDPRVRAM
+		;Move lines from buffer to the beginning of the screen
+        LXI B, BLKDAT
+        LXI D, 0800H
+        LXI H, 01E0H
+        CALL VDPWVRAM		
+        ;Move remaining 11 lines
+        ;Read them first
+        LXI B, BLKDAT
+        LXI D, 0A08H
+        LXI H, 01B8H
+		CALL VDPRVRAM
+		;Write those lines to the middle of the screen
+        LXI B, BLKDAT
+        LXI D, 09E0H
+        LXI H, 01B8H
+        CALL VDPWVRAM			
+		;Clear last line
+		LXI D, 0B98H
+		LXI H, 0028H 
+		CALL VDPZEROVRAM
+		RET
 
 ;RAM ADDRESS IN BC, VRAM ADDRES IN DE, DATA LENGTH IN HL        
 VDPWVRAM:
         MOV A, E
         OUT VDP_MODE
-        NOP
-        NOP
         MOV A, D
         ORI 40H
         OUT VDP_MODE
-        NOP
-        NOP
 VDPWVRAML:
         LDAX B
         OUT VDP_DATA
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
         INX B
         DCX H
         MOV A, H
@@ -398,22 +383,10 @@ VDPWVRAML:
 VDPRVRAM:
         MOV A, E
         OUT VDP_MODE
-        NOP
-        NOP
         MOV A, D
         OUT VDP_MODE
-        NOP
-        NOP
 VDPRVRAML:
 		IN VDP_DATA
-		NOP
-		NOP
-		NOP
-		NOP
-		NOP
-		NOP
-		NOP
-		NOP
         STAX B
         INX B
         DCX H
@@ -2178,19 +2151,6 @@ INIT:   STA  OCSW
         LXI  D, INPIO_ROM               ;SOURCE
         LXI  H, INPIO                   ;DESTINATION
         CALL MEMCOPY
-        
-        CALL ZEROVRAM
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
 		
         CALL CFINIT
         ;CALL CFRSECT
