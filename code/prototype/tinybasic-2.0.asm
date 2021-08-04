@@ -259,8 +259,8 @@ CFWSECT:
         
 VDPINIT:
         MVI A, 00H
-        STA CURX                        ;Set cursor x position to 0
-        STA CURY                        ;Set cursor y position to 0
+        STA CURSOR                      ;Set CURSOR to 0
+        STA CURSOR+1                    
         MVI A, 00H                      ;REG0 (TEXT MODE, NO EXTERNAL VIDEO)
         OUT VDP_MODE
         MVI A, 80H                      ;SELECT REG0
@@ -394,6 +394,61 @@ VDPRVRAML:
         ORA L        
         JNZ VDPRVRAML
         RET
+        
+
+;PUTS CHRACTER FROM  ON SCREEN, HANDLES CURSOR VALUE
+VDPPUTC:
+		CPI 0AH
+		JNZ VDPPUTC_CHCR
+		LDA CURSOR						;Load CURSOR to A
+		ADI 28H							;Add 40 (0x28) to A
+		STA CURSOR						;Save result in CURSOR
+		LDA CURSOR+1					;Load CURSOR+1 to A
+		ACI 00H							;Add 0 to A with carry
+		STA CURSOR+1					;Save result in CURSOR+1
+		JMP VDPPUTC_CHECKCURSOR	
+VDPPUTC_CHCR:
+		CPI 0DH
+		JNZ VDPPUTC_SEND
+		;Divide by 40
+		;Increment
+		;Multiply by 40
+		MVI A, 20H						;Make it space (TEMP SOLUTON)
+VDPPUTC_SEND:
+		MOV B, A						;Store A in B
+		;Add CURSOR to the address of NAME TABLE in VRAM
+		LDA CURSOR						;Load CURSOR (LSB) tp A
+		ADI 00H							;ADD 0 to A
+		OUT VDP_MODE					;Send result to VDP
+		LDA CURSOR+1					;Load CURSOR+1 (MSB) to A
+		ACI 08H							;Add 0x08 to A wih carry
+		ORI 40H
+		OUT VDP_MODE					;Address is set
+		MOV A, B						;Restore character from B
+		OUT VDP_DATA					;Now simpluy send the character
+		;So... Now we need to increment CURSOR
+		LHLD CURSOR
+		INX H
+		SHLD CURSOR
+VDPPUTC_CHECKCURSOR:
+		;NOW WE NEED TO CHECK IF VDP_CURSOR IS HIGHTER THAN 960 (0x3C0)
+		LDA CURSOR+1
+		CPI 03H
+		JNC VDPUTC_EXCEEDED				;If carry bit is set 0x03 > CURSOR+1. So if it is not set 0x03 < CURSOR+1. Exceeded!
+		RNZ								;If we are here and zero flag is not set CURSOR+1 < 0x03, so we can return.
+		;CURSOR is equal to 0x03. We need to test lower byte! CHECK THIS!!!!!!!!!!!!!!!!
+		LDA CURSOR
+		CPI 0C0H
+		JNC VDPUTC_EXCEEDED				;If carry bit is set 0xC0 > CURSOR. So if it is not set 0xC0 < CURSOR. Exceeded!
+		RNZ								;If we are here and zero flag is not set CURSOR < 0xC0, so we can return.	
+VDPUTC_EXCEEDED:
+		CALL VDPSCROLLUP
+		MVI A, 98H
+		STA CURSOR
+		MVI A, 03H
+		STA CURSOR+1
+		RET
+
 
 ;KBDINIT - initializes 8042/8242 PS/2 keyboard controller
 ;Affects: A, B, C, Z
@@ -2152,33 +2207,19 @@ INIT:   STA  OCSW
         LXI  H, INPIO                   ;DESTINATION
         CALL MEMCOPY
 		
-        CALL CFINIT
+        ;CALL CFINIT
         ;CALL CFRSECT
         CALL VDPINIT
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
 ;        CALL CFINFO
         
 ;		COPY TEXT        
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
 ;	 	Initialize VRAM
         LXI B, CRTMSG
         LXI D, 0800H
@@ -2216,6 +2257,17 @@ OC3:    IN   UART_8251_CTRL             ;COME HERE TO DO OUTPUT
         JZ   OC3                        ;NOT READY, WAIT
         POP  PSW                        ;READY, GET OLD A BACK
         OUT  UART_8251_DATA             ;AND SEND IT OUT
+        ;CRT
+        PUSH PSW
+        PUSH B
+		PUSH D
+		PUSH H
+		CALL VDPPUTC
+		POP H
+		POP D
+		POP B
+		POP PSW		
+        ;CRT END
         CPI  CR                         ;WAS IT CR?
         RNZ                             ;NO, FINISHED
         MVI  A,LF                       ;YES, WE SEND LF TOO
@@ -2223,18 +2275,18 @@ OC3:    IN   UART_8251_CTRL             ;COME HERE TO DO OUTPUT
         MVI  A,CR                       ;GET CR BACK IN A
         RET
 ;
-;CHKIO:  IN   UART_8251_CTRL             ;*** CHKIO ***
-;        NOP                             ;STATUS BIT FLIPPED?
-;        ANI  RxRDY_MASK                         ;MASK STATUS BIT
-;        RZ                              ;NOT READY, RETURN "Z"
-;        IN   UART_8251_DATA                         ;READY, READ DATA
-CHKIO:	PUSH B
-		PUSH D
-		PUSH H
-		CALL KBD2ASCII
-		POP H
-		POP D
-		POP B
+CHKIO:  IN   UART_8251_CTRL             ;*** CHKIO ***
+        NOP                             ;STATUS BIT FLIPPED?
+        ANI  RxRDY_MASK                         ;MASK STATUS BIT
+        RZ                              ;NOT READY, RETURN "Z"
+        IN   UART_8251_DATA                         ;READY, READ DATA
+;CHKIO:	PUSH B
+;		PUSH D
+;		PUSH H
+;		CALL KBD2ASCII
+;		POP H
+;		POP D
+;		POP B
 		CPI  00H
 		RZ
         ANI  7FH                        ;MASK BIT 7 OFF
@@ -2760,8 +2812,7 @@ KBDKRFL DS	 1							;Keyboard key release flag
 KBDSFFL DS	 1							;Keyboard Shift flag
 KBDOLD	DS	 1							;Keyboard old data
 KBDNEW	DS	 1							;Keyboard new data
-CURX    DS   1                          ;VDP cursor x position
-CURY    DS   1                          ;VDP cursor y position
+CURSOR  DS   2                          ;VDP cursor x position
 STKLMT: DS   1                          ;TOP LIMIT FOR STACK
 ;       ORG  1400H
         ORG  7FFFH
