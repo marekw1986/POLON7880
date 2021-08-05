@@ -259,8 +259,8 @@ CFWSECT:
         
 VDPINIT:
         MVI A, 00H
-        STA CURX                        ;Set cursor x position to 0
-        STA CURY                        ;Set cursor y position to 0
+        STA CURSOR                      ;Set CURSOR to 0
+        STA CURSOR+1                    
         MVI A, 00H                      ;REG0 (TEXT MODE, NO EXTERNAL VIDEO)
         OUT VDP_MODE
         MVI A, 80H                      ;SELECT REG0
@@ -281,6 +281,11 @@ VDPINIT:
         MVI A, 84H                      ;SELECT REG4
         OUT VDP_MODE
         
+        ;CLEAR VRAM
+		LXI D, 0000H					;ZERO VRAM STARTING FROM 0x0000
+		LXI H, 4000H					;ZERO 16kB
+		CALL VDPZEROVRAM        
+        
         ; INITIALIZE VRAM
         LXI B, CHARS
         LXI D, 0000H + (32*8)
@@ -299,71 +304,68 @@ VDPINIT:
         MVI A, 0F1H                     ;REG7 (WHITE TEXT ON BLACK BACKGROUND)
         OUT VDP_MODE
         MVI A, 87H                      ;SELECT REG7
-        OUT VDP_MODE
-    
-        RET
-;Prints ASCII character from A on the screen.
-VDP_PUTC:
-        CPI 0DH                         ;Is it a return character?
-        JNZ VDP_PN                      ;If not, go to the next stage
-        MVI A, 00H                      ;If yes, CURX = 0
-        STA CURX
-        RET
-VDP_PN:
-        CPI 0AH                         ;Is it a newline character
-        JNZ VDP_CALC                    ;If not, go to the next stage
-        LDA CURY                        ;Load CURY to A
-        INR A                           ;Increment A
-        CPI SCREEN_MAX_Y                ;Compare A with max Y value
-        JNC VDP_STA_CURY                ;If it is below 24, just save
-        CALL VDP_1UP                    ;Scroll scrren content one line up
-        MVI A, SCREEN_MAX_Y-1           ;CURY is still the last line
-VDP_STA_CURY:
-        STA CURY                        ;Save current CURY value
-        RET                             ;Return
-VDP_CALC:
-        ;Calculate position in VRAM basing on CURX and CURY
-        MOV B, A                        ;Store current character in B
-        LDA CURY                        ;Load current CURY value to A
-        ;Put character
-        
-        LDA CURX                        ;Load CURX to A
-        INR A                           ;Increment A
-        CPI SCREEN_MAX_X				;Compare it with max value                          
-VPD_CALC_LOOP:
-
-        RET
-        
-VDP_1UP:
+        OUT VDP_MODE 
         RET
 
-ZEROVRAM:
-		MVI A, 00H
-		OUT VDP_MODE
-		NOP
-		NOP
-		MVI A, 40H
-		OUT VDP_MODE
-		NOP
-		NOP
-		LXI B, 4000H
-ZEROVRAML:
-		MVI A, 00H
-		OUT VDP_DATA
-		NOP
-		NOP
-		NOP
-		NOP
-		NOP
-		NOP
-		NOP
-		NOP
-		DCX B
-		MOV A, B
-		ORA C
-		JNZ ZEROVRAML
-		RET
+
+;CLEAR SCREEN
+VDPCLS:
+		LXI D, 0800H					;ZERO VRAM STARTING FROM 0x0800
+		LXI H, 03C0H					;ZERO 16kB
+		CALL VDPZEROVRAM
 		
+
+;VRAM ADDRES IN DE, DATA LENGTH IN HL        
+VDPZEROVRAM:
+        MOV A, E
+        OUT VDP_MODE
+        NOP
+        NOP
+        MOV A, D
+        ORI 40H
+        OUT VDP_MODE
+        NOP
+        NOP
+VDPZEROVRAML:
+        MVI A, 00H
+        OUT VDP_DATA
+        NOP
+        NOP
+        DCX H
+        MOV A, H
+        ORA L          
+        JNZ VDPZEROVRAML
+        RET
+        
+        
+VDPSCROLLUP:
+		;Mowe 12 lines
+		;Read them first
+        LXI B, BLKDAT
+        LXI D, 0828H
+        LXI H, 01E0H
+		CALL VDPRVRAM
+		;Move lines from buffer to the beginning of the screen
+        LXI B, BLKDAT
+        LXI D, 0800H
+        LXI H, 01E0H
+        CALL VDPWVRAM		
+        ;Move remaining 11 lines
+        ;Read them first
+        LXI B, BLKDAT
+        LXI D, 0A08H
+        LXI H, 01B8H
+		CALL VDPRVRAM
+		;Write those lines to the middle of the screen
+        LXI B, BLKDAT
+        LXI D, 09E0H
+        LXI H, 01B8H
+        CALL VDPWVRAM			
+		;Clear last line
+		LXI D, 0B98H
+		LXI H, 0028H 
+		CALL VDPZEROVRAM
+		RET
 
 ;RAM ADDRESS IN BC, VRAM ADDRES IN DE, DATA LENGTH IN HL        
 VDPWVRAM:
@@ -379,12 +381,6 @@ VDPWVRAM:
 VDPWVRAML:
         LDAX B
         OUT VDP_DATA
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
         NOP
         NOP
         INX B
@@ -408,12 +404,6 @@ VDPRVRAML:
 		IN VDP_DATA
 		NOP
 		NOP
-		NOP
-		NOP
-		NOP
-		NOP
-		NOP
-		NOP
         STAX B
         INX B
         DCX H
@@ -421,6 +411,75 @@ VDPRVRAML:
         ORA L        
         JNZ VDPRVRAML
         RET
+        
+
+;PUTS CHRACTER FROM  ON SCREEN, HANDLES CURSOR VALUE
+VDPPUTC:
+		CPI 0AH
+		JNZ VDPPUTC_CHCR
+		RET								;Ignore it (TEMP SOLUTION)
+		;LDA CURSOR						;Load CURSOR to A
+		;ADI 28H							;Add 40 (0x28) to A
+		;STA CURSOR						;Save result in CURSOR
+		;LDA CURSOR+1					;Load CURSOR+1 to A
+		;ACI 00H							;Add 0 to A with carry
+		;STA CURSOR+1					;Save result in CURSOR+1
+		;JMP VDPPUTC_CHECKCURSOR
+VDPPUTC_CHCR:
+		CPI 0DH
+		JNZ VDPPUTC_SEND
+		;Divide by 40
+		;Increment
+		;Multiply by 40
+		MVI A, 20H						;Make it space (TEMP SOLUTON)
+VDPPUTC_SEND:
+		MOV B, A						;Store A in B
+		;Add CURSOR to the address of NAME TABLE in VRAM
+		LDA CURSOR						;Load CURSOR (LSB) tp A
+		OUT VDP_MODE					;Send result to VDP
+		NOP
+		NOP
+		LDA CURSOR+1					;Load CURSOR+1 (MSB) to A
+		ADI 08H							;Add 0x08 to A
+		ORI 40H
+		OUT VDP_MODE					;Address is set
+		NOP
+		NOP
+		MOV A, B						;Restore character from B
+		OUT VDP_DATA					;Now simpluy send the character
+		;So... Now we need to increment CURSORLIST
+		;LHLD CURSOR
+		;INX H
+		;SHLD CURSOR
+		LXI H, CURSOR
+		INR M
+		JNZ VDPPUTC_CHECKCURSOR
+		LXI H, CURSOR+1
+		INR M		
+VDPPUTC_CHECKCURSOR:
+		;NOW WE NEED TO CHECK IF VDP_CURSOR IS HIGHTER THAN 960 (0x3C0)
+		LDA CURSOR+1
+		CPI 03H
+		RC								;CURSOR+1 < 0x03 - it is in range. We can return
+		JZ VDPPUTC_CHECKCURSORLSB		;CURSOR+1 = 0x03 - we need to check LSB to be sure
+		JMP VDPUTC_EXCEEDED				;Otherwise CURSOR+1 > 0x03
+VDPPUTC_CHECKCURSORLSB:		
+		;CURSOR is equal to 0x03. We need to test lower byte! CHECK THIS!!!!!!!!!!!!!!!!
+		LDA CURSOR
+		CPI 0C0H
+		RC								;CURSOR < 0xC0 - it is in range. We can return. Otherwise exceeded.	
+VDPUTC_EXCEEDED:
+		CALL VDPSCROLLUP
+		MVI A, 98H
+		STA CURSOR
+		MVI A, 03H
+		STA CURSOR+1
+		;CALL VDPCLS
+		;MVI A, 00H
+		;STA CURSOR
+		;STA CURSOR+1
+		RET
+
 
 ;KBDINIT - initializes 8042/8242 PS/2 keyboard controller
 ;Affects: A, B, C, Z
@@ -2178,47 +2237,20 @@ INIT:   STA  OCSW
         LXI  D, INPIO_ROM               ;SOURCE
         LXI  H, INPIO                   ;DESTINATION
         CALL MEMCOPY
-        
-        CALL ZEROVRAM
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
 		
-        CALL CFINIT
+        ;CALL CFINIT
         ;CALL CFRSECT
         CALL VDPINIT
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
 ;        CALL CFINFO
         
 ;		COPY TEXT        
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
-        NOP
 ;	 	Initialize VRAM
         LXI B, CRTMSG
         LXI D, 0800H
@@ -2256,6 +2288,17 @@ OC3:    IN   UART_8251_CTRL             ;COME HERE TO DO OUTPUT
         JZ   OC3                        ;NOT READY, WAIT
         POP  PSW                        ;READY, GET OLD A BACK
         OUT  UART_8251_DATA             ;AND SEND IT OUT
+        ;CRT
+        PUSH PSW
+        PUSH B
+		PUSH D
+		PUSH H
+		CALL VDPPUTC
+		POP H
+		POP D
+		POP B
+		POP PSW		
+        ;CRT END
         CPI  CR                         ;WAS IT CR?
         RNZ                             ;NO, FINISHED
         MVI  A,LF                       ;YES, WE SEND LF TOO
@@ -2263,18 +2306,18 @@ OC3:    IN   UART_8251_CTRL             ;COME HERE TO DO OUTPUT
         MVI  A,CR                       ;GET CR BACK IN A
         RET
 ;
-;CHKIO:  IN   UART_8251_CTRL             ;*** CHKIO ***
-;        NOP                             ;STATUS BIT FLIPPED?
-;        ANI  RxRDY_MASK                         ;MASK STATUS BIT
-;        RZ                              ;NOT READY, RETURN "Z"
-;        IN   UART_8251_DATA                         ;READY, READ DATA
-CHKIO:	PUSH B
-		PUSH D
-		PUSH H
-		CALL KBD2ASCII
-		POP H
-		POP D
-		POP B
+CHKIO:  IN   UART_8251_CTRL             ;*** CHKIO ***
+        NOP                             ;STATUS BIT FLIPPED?
+        ANI  RxRDY_MASK                         ;MASK STATUS BIT
+        RZ                              ;NOT READY, RETURN "Z"
+        IN   UART_8251_DATA                         ;READY, READ DATA
+;CHKIO:	PUSH B
+;		PUSH D
+;		PUSH H
+;		CALL KBD2ASCII
+;		POP H
+;		POP D
+;		POP B
 		CPI  00H
 		RZ
         ANI  7FH                        ;MASK BIT 7 OFF
@@ -2800,8 +2843,7 @@ KBDKRFL DS	 1							;Keyboard key release flag
 KBDSFFL DS	 1							;Keyboard Shift flag
 KBDOLD	DS	 1							;Keyboard old data
 KBDNEW	DS	 1							;Keyboard new data
-CURX    DS   1                          ;VDP cursor x position
-CURY    DS   1                          ;VDP cursor y position
+CURSOR  DS   2                          ;VDP cursor x position
 STKLMT: DS   1                          ;TOP LIMIT FOR STACK
 ;       ORG  1400H
         ORG  7FFFH

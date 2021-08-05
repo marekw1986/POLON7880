@@ -327,7 +327,7 @@ KBDCRTLSET:
         MVI A, 60H
         OUT KBD_CMD
         CALL KBDWAITINBUF			;Send actual configuration byte
-        MVI A, 09H					;Interrupts enabled, system flag set, first port clock enabled
+        MVI A, 08H					;Interrupts disabled, system flag set, first port clock enabled (09H to enable interrupts)
 		OUT KBD_DATA				;second port clock disabled, first port translation disabled
         ;9. Zero out buffer        
         MVI A, 00H                  
@@ -1978,7 +1978,7 @@ INIT:   STA  OCSW
         OUT	 PIC_8259_HIGH				;ICW2 is written to the high port of 8259
         MVI  A, 02H						;ICW4 - NOT special full nested mode, not buffored, master, automatic EOI, 8080 processor
         OUT  PIC_8259_HIGH				;ICW4 is written to the high port of 8259        
-        MVI  A, 0E7H					;OCW1 active TIMER and RTC, KBD interrupt DISABLED (0xE6 to enable)
+        MVI  A, 0F7H					;OCW1 TIMER disabled, RTC acrive, KBD disabled
         OUT  PIC_8259_HIGH				;OCW1 is written to the high port of 8259
         MVI  A, 80H						;OCW2 - Rotation of priorities, no explicit EOI
         OUT  PIC_8259_LOW				;OCW2 is written to the low port of 8259
