@@ -319,13 +319,18 @@ VDPCLS:
 VDPZEROVRAM:
         MOV A, E
         OUT VDP_MODE
+        NOP
+        NOP
         MOV A, D
         ORI 40H
         OUT VDP_MODE
+        NOP
+        NOP
 VDPZEROVRAML:
         MVI A, 00H
         OUT VDP_DATA
-        INX B
+        NOP
+        NOP
         DCX H
         MOV A, H
         ORA L          
@@ -366,12 +371,18 @@ VDPSCROLLUP:
 VDPWVRAM:
         MOV A, E
         OUT VDP_MODE
+        NOP
+        NOP
         MOV A, D
         ORI 40H
         OUT VDP_MODE
+        NOP
+        NOP
 VDPWVRAML:
         LDAX B
         OUT VDP_DATA
+        NOP
+        NOP
         INX B
         DCX H
         MOV A, H
@@ -383,10 +394,16 @@ VDPWVRAML:
 VDPRVRAM:
         MOV A, E
         OUT VDP_MODE
+        NOP
+        NOP
         MOV A, D
         OUT VDP_MODE
+        NOP
+        NOP
 VDPRVRAML:
 		IN VDP_DATA
+		NOP
+		NOP
         STAX B
         INX B
         DCX H
@@ -400,13 +417,14 @@ VDPRVRAML:
 VDPPUTC:
 		CPI 0AH
 		JNZ VDPPUTC_CHCR
-		LDA CURSOR						;Load CURSOR to A
-		ADI 28H							;Add 40 (0x28) to A
-		STA CURSOR						;Save result in CURSOR
-		LDA CURSOR+1					;Load CURSOR+1 to A
-		ACI 00H							;Add 0 to A with carry
-		STA CURSOR+1					;Save result in CURSOR+1
-		JMP VDPPUTC_CHECKCURSOR	
+		RET								;Ignore it (TEMP SOLUTION)
+		;LDA CURSOR						;Load CURSOR to A
+		;ADI 28H							;Add 40 (0x28) to A
+		;STA CURSOR						;Save result in CURSOR
+		;LDA CURSOR+1					;Load CURSOR+1 to A
+		;ACI 00H							;Add 0 to A with carry
+		;STA CURSOR+1					;Save result in CURSOR+1
+		;JMP VDPPUTC_CHECKCURSOR
 VDPPUTC_CHCR:
 		CPI 0DH
 		JNZ VDPPUTC_SEND
@@ -418,35 +436,48 @@ VDPPUTC_SEND:
 		MOV B, A						;Store A in B
 		;Add CURSOR to the address of NAME TABLE in VRAM
 		LDA CURSOR						;Load CURSOR (LSB) tp A
-		ADI 00H							;ADD 0 to A
 		OUT VDP_MODE					;Send result to VDP
+		NOP
+		NOP
 		LDA CURSOR+1					;Load CURSOR+1 (MSB) to A
-		ACI 08H							;Add 0x08 to A wih carry
+		ADI 08H							;Add 0x08 to A
 		ORI 40H
 		OUT VDP_MODE					;Address is set
+		NOP
+		NOP
 		MOV A, B						;Restore character from B
 		OUT VDP_DATA					;Now simpluy send the character
-		;So... Now we need to increment CURSOR
-		LHLD CURSOR
-		INX H
-		SHLD CURSOR
+		;So... Now we need to increment CURSORLIST
+		;LHLD CURSOR
+		;INX H
+		;SHLD CURSOR
+		LXI H, CURSOR
+		INR M
+		JNZ VDPPUTC_CHECKCURSOR
+		LXI H, CURSOR+1
+		INR M		
 VDPPUTC_CHECKCURSOR:
 		;NOW WE NEED TO CHECK IF VDP_CURSOR IS HIGHTER THAN 960 (0x3C0)
 		LDA CURSOR+1
 		CPI 03H
-		JNC VDPUTC_EXCEEDED				;If carry bit is set 0x03 > CURSOR+1. So if it is not set 0x03 < CURSOR+1. Exceeded!
-		RNZ								;If we are here and zero flag is not set CURSOR+1 < 0x03, so we can return.
+		RC								;CURSOR+1 < 0x03 - it is in range. We can return
+		JZ VDPPUTC_CHECKCURSORLSB		;CURSOR+1 = 0x03 - we need to check LSB to be sure
+		JMP VDPUTC_EXCEEDED				;Otherwise CURSOR+1 > 0x03
+VDPPUTC_CHECKCURSORLSB:		
 		;CURSOR is equal to 0x03. We need to test lower byte! CHECK THIS!!!!!!!!!!!!!!!!
 		LDA CURSOR
 		CPI 0C0H
-		JNC VDPUTC_EXCEEDED				;If carry bit is set 0xC0 > CURSOR. So if it is not set 0xC0 < CURSOR. Exceeded!
-		RNZ								;If we are here and zero flag is not set CURSOR < 0xC0, so we can return.	
+		RC								;CURSOR < 0xC0 - it is in range. We can return. Otherwise exceeded.	
 VDPUTC_EXCEEDED:
 		CALL VDPSCROLLUP
 		MVI A, 98H
 		STA CURSOR
 		MVI A, 03H
 		STA CURSOR+1
+		;CALL VDPCLS
+		;MVI A, 00H
+		;STA CURSOR
+		;STA CURSOR+1
 		RET
 
 
