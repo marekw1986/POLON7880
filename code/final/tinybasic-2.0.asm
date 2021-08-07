@@ -327,7 +327,7 @@ KBDCRTLSET:
         MVI A, 60H
         OUT KBD_CMD
         CALL KBDWAITINBUF			;Send actual configuration byte
-        MVI A, 08H					;Interrupts disabled, system flag set, first port clock enabled (09H to enable interrupts)
+        MVI A, 09H					;Interrupts enabled, system flag set, first port clock enabled (08H to disable interrupts)
 		OUT KBD_DATA				;second port clock disabled, first port translation disabled
         ;9. Zero out buffer        
         MVI A, 00H                  
@@ -1978,7 +1978,7 @@ INIT:   STA  OCSW
         OUT	 PIC_8259_HIGH				;ICW2 is written to the high port of 8259
         MVI  A, 02H						;ICW4 - NOT special full nested mode, not buffored, master, automatic EOI, 8080 processor
         OUT  PIC_8259_HIGH				;ICW4 is written to the high port of 8259        
-        MVI  A, 0F7H					;OCW1 TIMER disabled, RTC acrive, KBD disabled
+        MVI  A, 0E6H					;OCW1 TIMER disabled, RTC acrive, KBD disabled
         OUT  PIC_8259_HIGH				;OCW1 is written to the high port of 8259
         MVI  A, 80H						;OCW2 - Rotation of priorities, no explicit EOI
         OUT  PIC_8259_LOW				;OCW2 is written to the low port of 8259
@@ -2011,14 +2011,19 @@ INIT:   STA  OCSW
         
 
 ;       Initialize keyboard
-        ;LXI D, KBDMSG                       ;Print KBD Init message
-        ;CALL PRTSTG
-        ;CALL KBDINIT                        ;Call init routine
-        ;MOV L, B                            ;Check and print result code
-        ;MVI H, 00H
-        ;MVI C, 02H
-        ;CALL PRTNUM
-        ;CALL CRLF
+        LXI D, KBDMSG                       ;Print KBD Init message
+        CALL PRTSTG
+        CALL KBDINIT                        ;Call init routine
+        MOV L, B                            ;Check and print result code
+        MVI H, 00H
+        MVI C, 02H
+        CALL PRTNUM
+        CALL CRLF
+        MVI A, 0D1H
+        OUT KBD_CMD
+        CALL KBDWAITINBUF
+        MVI A, 0FFH
+        OUT KBD_DATA
         ;Enable interrupts
         EI
         
@@ -2049,20 +2054,21 @@ OC3:    IN   UART_8251_CTRL             ;COME HERE TO DO OUTPUT
         MVI  A,CR                       ;GET CR BACK IN A
         RET
 ;
-CHKIO:  IN   UART_8251_CTRL             ;*** CHKIO ***
-        NOP                             ;STATUS BIT FLIPPED?
-        ANI  RxRDY_MASK                 ;MASK STATUS BIT
-        RZ                              ;NOT READY, RETURN "Z"
-        IN   UART_8251_DATA             ;READY, READ DATA
-;CHKIO:	PUSH B
-;		PUSH D
-;		PUSH H
-;		CALL KBD2ASCII
-;		POP H
-;		POP D
-;		POP B
-;		CPI  00H
-;		RZ
+;CHKIO:  IN   UART_8251_CTRL             ;*** CHKIO ***
+;        NOP                             ;STATUS BIT FLIPPED?
+;        ANI  RxRDY_MASK                 ;MASK STATUS BIT
+;        RZ                              ;NOT READY, RETURN "Z"
+;        IN   UART_8251_DATA             ;READY, READ DATA
+CHKIO:	PUSH B
+		PUSH D
+		PUSH H
+		CALL KBD2ASCII
+		POP H
+		POP D
+		POP B
+		CPI  00H
+		RZ
+		;
         ANI  7FH                        ;MASK BIT 7 OFF
         CPI  0FH                        ;IS IT CONTROL-O?
         JNZ  CI1                        ;NO, MORE CHECKING
@@ -2509,12 +2515,12 @@ RTC_ISR:
 ;Interrupt vectors
 IR0_VECT:
 		ORG  0FFE0H
-		;JMP KBD_ISR
-        ;NOP
-        EI
-        RET
+		JMP KBD_ISR
         NOP
-        NOP        
+        ;EI
+        ;RET
+        ;NOP
+        ;NOP        
 IR1_VECT:
 		;JMP UART_TX_ISR
         ;NOP
