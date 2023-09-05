@@ -446,12 +446,7 @@ VDPPUTC_CHCR:
 		CPI 0DH
 		JNZ VDPPUTC_SEND
 		CALL VDPCLCURSOR				;Cler cursor first
-		CALL DIV40						;Divide by 40
-		LDA CURSOR						;Increment cursor
-		INR A
-		STA CURSOR
-		CALL MUL40						;Multiply by 40
-		;MVI A, 20H						;Make it space (TEMP SOLUTON)
+		CALL NEXTLINE
 		RET
 VDPPUTC_SEND:
 		MOV B, A						;Store A in B
@@ -471,12 +466,7 @@ VDPPUTC_SEND:
 		;So... Now we need to increment CURSORLIST
 		LHLD CURSOR
 		INX H
-		SHLD CURSOR
-		;LXI H, CURSOR
-		;INR M
-		;JNZ VDPPUTC_CHECKCURSOR
-		;LXI H, CURSOR+1
-		;INR M		
+		SHLD CURSOR	
 VDPPUTC_CHECKCURSOR:
 		;NOW WE NEED TO CHECK IF VDP_CURSOR IS HIGHTER THAN 960 (0x3C0)
 		LDA CURSOR+1
@@ -496,10 +486,6 @@ VDPUTC_EXCEEDED:
 		STA CURSOR
 		MVI A, 03H
 		STA CURSOR+1
-		;CALL VDPCLS
-		;MVI A, 00H
-		;STA CURSOR
-		;STA CURSOR+1
 VDPPUTC_RET:
 		;Before we return, we need to put cursor in its new place
 		LDA CURSOR						;Load CURSOR (LSB) tp A
@@ -533,39 +519,31 @@ VDPCLCURSOR:
 		RET
 		
 		
-DIV40:
+NEXTLINE:
 		LDA CURSOR+1					;Load CURSOR MSB
 		MOV B, A						;Move it to B
 		LDA CURSOR						;Load CURSOR LSB, it stays in A
 		MVI C, 28H						;Denominator (40) in C
 		INR B							;Increase B register
 		LXI H,0000H						;Store 0000Hinto HL pair
-DIV40L:
+NLDIV40L:
 		SUB C   						;Subtract C from acc
-		JC DIV40SKIP    				;Jump to SKIPwhen CY = 1
-DIV40INCR:
+		JC NLDIV40SKIP    				;Jump to SKIPwhen CY = 1
+NLDIV40INCR:
 		INX H   						;Increase quotient part
-		JMP DIV40L   					;Jump to LOOP
-DIV40SKIP:
+		JMP NLDIV40L   					;Jump to LOOP
+NLDIV40SKIP:
 		DCR B   						;Decrease B		
-		JZ DIV40STORE    				;Jump to STOREwhen Z = 1
-		JMP DIV40INCR    				;Jump to INCR
-DIV40STORE:
-		;ADD C   						;Add C withAcc (CAN WE DELETE IT?)
-		;XCHG    						;swap DE andHL pair contents
-		MOV A, L						;Store the lower order quotient
-		STA CURSOR
-		MOV A, H						;Store the higher order quotient
-		STA CURSOR+1	
-		RET
-		
-		
-MUL40:
-		LDA CURSOR						;Load current value of CURSOR (after div by 40) to A
-		RZ 								;If it is zero, it stays zero
-		MOV B, A						;Move it to B
-		MVI A, 00H
-MUL40L:
+		JZ NLDIV40STORE    				;Jump to STOREwhen Z = 1
+		JMP NLDIV40INCR    				;Jump to INCR
+NLDIV40STORE:
+		MOV A, L						;Store the lower order quotient. It is all we need - it is < 24
+		INR A							;Increment - next line. It is never zero.
+		MOV B, A						;Store it in B
+		SUB A							;Zero A
+		STA CURSOR						;Write zero to CURSOR
+		STA CURSOR+1					;Write zero to CURSOR+1
+NLMUL40L:
 		LDA CURSOR
 		ADI 28H
 		STA CURSOR
@@ -573,8 +551,8 @@ MUL40L:
 		ACI 00H
 		STA CURSOR+1
 		DCR B
-		JNZ MUL40L
-		RET
+		JNZ NLMUL40L
+		RET		
 
 
 ;KBDINIT - initializes 8042/8242 PS/2 keyboard controller
@@ -2384,11 +2362,11 @@ PATLOP:
 OC2:    JNZ  OC3                        ;IT IS ON
         POP  PSW                        ;IT IS OFF
         RET                             ;RESTORE AF AND RETURN
-OC3:    IN   UART_8251_CTRL             ;COME HERE TO DO OUTPUT
-        ANI  TxRDY_MASK                 ;STATUS BIT
-        JZ   OC3                        ;NOT READY, WAIT
+OC3:    ;IN   UART_8251_CTRL             ;COME HERE TO DO OUTPUT
+        ;ANI  TxRDY_MASK                 ;STATUS BIT
+        ;JZ   OC3                        ;NOT READY, WAIT
         POP  PSW                        ;READY, GET OLD A BACK
-        OUT  UART_8251_DATA             ;AND SEND IT OUT
+        ;OUT  UART_8251_DATA             ;AND SEND IT OUT
         ;CRT
         PUSH PSW
         PUSH B
