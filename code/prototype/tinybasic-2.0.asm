@@ -207,34 +207,35 @@ CFINFO:
         OUT	CFREG7
         LXI	D, BLKDAT
         CALL CFREAD
-        CALL CRLF
+        ;CALL CRLF
 ;PRINT CFMSG
 		LXI D, CFMSG1
-		CALL PRTSTG
-		CALL CRLF
+		MVI B, 9
+		CALL PRNSTR
+		;CALL CRLF
 ;PRINT SERIAL
-        LXI D, CFSER
-        CALL PRTSTG
-        LXI D, BLKDAT+20
-        MVI B, 10
-        CALL SWPSTR
-        LXI D, BLKDAT+20
-        MVI B, 20
-        CALL PRNSTR
-        CALL CRLF
+        ;LXI D, CFSER
+        ;CALL PRTSTG
+        ;LXI D, BLKDAT+20
+        ;MVI B, 10
+        ;CALL SWPSTR
+        ;LXI D, BLKDAT+20
+        ;MVI B, 20
+        ;CALL PRNSTR
+        ;CALL CRLF
 ;PRINT FIRMWARE REV
-        LXI D, CFFW
-        CALL PRTSTG
-        LXI D, BLKDAT+46
-        MVI B, 4
-        CALL SWPSTR
-        LXI D, BLKDAT+46
-        MVI B, 8
-        CALL PRNSTR
-        CALL CRLF
+        ;LXI D, CFFW
+        ;CALL PRTSTG
+        ;LXI D, BLKDAT+46
+        ;MVI B, 4
+        ;CALL SWPSTR
+        ;LXI D, BLKDAT+46
+        ;MVI B, 8
+        ;CALL PRNSTR
+        ;CALL CRLF
 ;PRINT MODEL NUMBER
-        LXI D, CFMOD
-        CALL PRTSTG
+        ;LXI D, CFMOD
+        ;CALL PRTSTG
         LXI D, BLKDAT+54
         MVI B, 20
         CALL SWPSTR
@@ -2523,17 +2524,9 @@ MSG1:   DB   'TINY '
         DB   CR
 CFMSG1: DB	 'CF CARD: '
 		DB	 CR
-CFMSG2: DB	 'READING SECTOR 0 INTO RAM BUFFER'
+CFMSG2: DB	 'READING MBR SECTOR'
 		DB	 CR
 PARTMS: DB	 'PARTITION TABLE'
-		DB	 CR
-CFSER:  DB   '    SN: '
-		DB   CR
-CFFW:	DB   '    FIRMWARE: '
-		DB   CR
-CFMOD:	DB   '    MODEL: '
-		DB	 CR
-CFLBAS: DB	 '    LBA SIZE: '
 		DB	 CR
 CFERRM: DB   'CF ERROR: '
         DB   CR
