@@ -215,9 +215,9 @@ CFINFO:
 ;PRINT SERIAL
         LXI D, CFSER
         CALL PRTSTG
-        ;LDX	#BLKDAT+20
-        ;LDAB	#20
-        ;JSR	PRTRSN
+        LXI D, BLKDAT+20
+        MVI B, 10
+        CALL SWPSTR
         LXI D, BLKDAT+20
         MVI B, 20
         CALL PRNSTR
@@ -225,9 +225,9 @@ CFINFO:
 ;PRINT FIRMWARE REV
         LXI D, CFFW
         CALL PRTSTG
-        ;LDX	#BLKDAT+46
-        ;LDAB	#8
-        ;JSR	PRTRN
+        LXI D, BLKDAT+46
+        MVI B, 4
+        CALL SWPSTR
         LXI D, BLKDAT+46
         MVI B, 8
         CALL PRNSTR
@@ -235,27 +235,42 @@ CFINFO:
 ;PRINT MODEL NUMBER
         LXI D, CFMOD
         CALL PRTSTG
-        ;LDX	#BLKDAT+54
-        ;LDAB	#40
-        ;JSR	PRTRN
+        LXI D, BLKDAT+54
+        MVI B, 20
+        CALL SWPSTR
         LXI D, BLKDAT+54
         MVI B, 40
         CALL PRNSTR
         CALL CRLF
 ;PRINT LBA SIZE
-        LXI D, CFLBAS
-        CALL PRTSTG
+        ;LXI D, CFLBAS
+        ;CALL PRTSTG
         ;LDX	#BLKDAT+123
         ;JSR	OUT2HS
+			;MVI C, 0
+			;LHLD BLKDAT+123
+			;CALL PRTNUM
+			;CALL CRLF
         ;DEX
         ;DEX
         ;JSR	OUT2HS
+			;MVI C, 0
+			;LHLD BLKDAT+125
+			;CALL PRTNUM
+			;CALL CRLF
         ;DEX
         ;DEX
         ;JSR	OUT2HS
+			;MVI C, 0
+			;LHLD BLKDAT+127
+			;CALL PRTNUM
+			;CALL CRLF
         ;DEX
         ;DEX
         ;JSR	OUT2HS
+			;MVI C, 0
+			;LHLD BLKDAT+129
+			;CALL PRTNUM
         CALL CRLF
         RET        
         
@@ -2103,7 +2118,7 @@ PS1:    LDAX D                          ;GET A CHARACTER
 
 ;PRINTS STRING POINTED BY DE AND TERMINATED WITH CR OR NULL
 ;MAX NUMBER OF CHARACTERS IN B         
-PRNSTR	MOV A, B
+PRNSTR:	MOV A, B
 		CPI 00H
 		RZ
 		LDAX D							;GET A CHARACTER
@@ -2115,6 +2130,29 @@ PRNSTR	MOV A, B
 		INX D							
 		DCR B
 		JMP PRNSTR
+
+;SAWPS PAIR IN STRING POINTED BY DE UNTIL B REACH 0
+;B IS NUMBER OF PAIRS!!!
+SWPSTR: MOV A, B
+		CPI 00H
+		RZ
+		LDAX D
+		MOV H, A
+		INX D
+		LDAX D
+		MOV L, A
+		MOV A, H
+		STAX D
+		DCX D
+		MOV A, L
+		STAX D
+		INX D
+		INX D
+		DCR B
+		JMP SWPSTR
+		
+		
+		
 ;
 QTSTG:  CALL TSTC                       ;*** QTSTG ***
         DB   '"'
@@ -2399,7 +2437,7 @@ TRYKBINIT:
         EI
         
         ;MVI D, 28H
-        MVI D, 5	; JUST TEMP FOR EASIER DEBUGGING, RESTORE 28H LATER
+        MVI D, 2	; JUST TEMP FOR EASIER DEBUGGING, RESTORE 28H LATER
 PATLOP:
         CALL CRLF
         DCR  D
