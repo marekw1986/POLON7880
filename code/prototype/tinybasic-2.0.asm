@@ -136,7 +136,7 @@ CFCHERR:
         IN CFREG7
         ANI	01H		                    ;MASK OUT ERROR BIT
         JZ	CFNERR
-        LXI D, CFMSG1
+        LXI D, CFERRM
         CALL PRTSTG
         IN	CFREG1
         MOV L, A
@@ -183,41 +183,68 @@ CFSLBA:
         OUT CFREG6
         RET
         
+CFGETMBR:
+		MVI A, 00H
+		OUT CFREG3						;LBA 0
+		OUT CFREG4						;LBA 1
+		OUT CFREG5						;LBA 2
+		ANI 0FH	                        ;FILTER OUT LBA BITS
+		ORI 0F0H	                    ;MODE LBA, MASTER DEV
+        OUT CFREG6
+        MVI A, 01H
+        OUT	CFREG2						;READ ONE SECTOR
+		CALL CFWAIT
+		MVI A, 20H						;READ SECTOR COMMAND
+		OUT	CFREG7
+		LXI	D, BLKDAT
+		CALL CFREAD
+		CALL CFCHERR
+		RET        
+  
 CFINFO:	
         CALL CFWAIT
         MVI	A, 0ECH	                    ;DRIVE ID COMMAND
         OUT	CFREG7
         LXI	D, BLKDAT
         CALL CFREAD
-        ;LDX	#TCRLF
-        ;JSR	PDATA
+        CALL CRLF
+;PRINT CFMSG
+		LXI D, CFMSG1
+		CALL PRTSTG
+		CALL CRLF
 ;PRINT SERIAL
-        ;LDX	#TSISER
-        ;JSR	PDATA
+        LXI D, CFSER
+        CALL PRTSTG
         ;LDX	#BLKDAT+20
         ;LDAB	#20
         ;JSR	PRTRSN
-        ;LDX	#TCRLF
-        ;JSR	PDATA
+        LXI D, BLKDAT+20
+        MVI B, 20
+        CALL PRNSTR
+        CALL CRLF
 ;PRINT FIRMWARE REV
-        ;LDX	#TSIFW
-        ;JSR	PDATA
+        LXI D, CFFW
+        CALL PRTSTG
         ;LDX	#BLKDAT+46
         ;LDAB	#8
         ;JSR	PRTRN
-        ;LDX	#TCRLF
-        ;JSR	PDATA
+        LXI D, BLKDAT+46
+        MVI B, 8
+        CALL PRNSTR
+        CALL CRLF
 ;PRINT MODEL NUMBER
-        ;LDX	#TSIMOD
-        ;JSR	PDATA
+        LXI D, CFMOD
+        CALL PRTSTG
         ;LDX	#BLKDAT+54
         ;LDAB	#40
         ;JSR	PRTRN
-        ;LDX	#TCRLF
-        ;JSR	PDATA
+        LXI D, BLKDAT+54
+        MVI B, 40
+        CALL PRNSTR
+        CALL CRLF
 ;PRINT LBA SIZE
-        ;LDX	#TSILBA
-        ;JSR	PDATA
+        LXI D, CFLBAS
+        CALL PRTSTG
         ;LDX	#BLKDAT+123
         ;JSR	OUT2HS
         ;DEX
@@ -229,8 +256,7 @@ CFINFO:
         ;DEX
         ;DEX
         ;JSR	OUT2HS
-        ;LDX	#TCRLF
-        ;JSR	PDATA
+        CALL CRLF
         RET        
         
 CFRSECT:
@@ -2074,6 +2100,21 @@ PS1:    LDAX D                          ;GET A CHARACTER
         CPI  CR                         ;WAS IT A CR?
         JNZ  PS1                        ;NO, NEXT
         RET                             ;YES, RETURN
+
+;PRINTS STRING POINTED BY DE AND TERMINATED WITH CR OR NULL
+;MAX NUMBER OF CHARACTERS IN B         
+PRNSTR	MOV A, B
+		CPI 00H
+		RZ
+		LDAX D							;GET A CHARACTER
+		CPI CR
+		RZ
+		CPI 00H
+		RZ
+		CALL OUTC
+		INX D							
+		DCR B
+		JMP PRNSTR
 ;
 QTSTG:  CALL TSTC                       ;*** QTSTG ***
         DB   '"'
@@ -2312,7 +2353,6 @@ INIT:   STA  OCSW
         LXI  H, INPIO                   ;DESTINATION
         CALL MEMCOPY
 		
-        ;CALL CFINIT
         ;CALL CFRSECT
         CALL VDPINIT
         NOP
@@ -2322,7 +2362,6 @@ INIT:   STA  OCSW
         NOP
         NOP
         NOP
-;        CALL CFINFO
         
 ;		COPY TEXT        
 ;	 	Initialize VRAM
@@ -2333,16 +2372,34 @@ INIT:   STA  OCSW
 ;       Initialize keyboard
         LXI D, KBDMSG                       ;Print KBD Init message
         CALL PRTSTG
+TRYKBINIT:
         CALL KBDINIT                        ;Call init routine
-        MOV L, B                            ;Check and print result code
-        MVI H, 00H
-        MVI C, 02H
-        CALL PRTNUM
+        MOV A, B							;Move result of operation to A
+        CPI 00H								;Check if OK
+        JNZ TRYKBINIT						;Retry if not ok. TODO add limit of retries
+        ;MOV L, B                            ;Check and print result code
+        ;MVI H, 00H
+        ;MVI C, 02H
+        ;CALL PRTNUM
+        LXI D, OK
+        CALL PRTSTG
         CALL CRLF
+
+		CALL CFINIT
+        CALL CFINFO
+        LXI D, CFMSG2
+        CALL PRTSTG
+        CALL CRLF
+        CALL CFGETMBR
+        LXI D, PARTMS
+        CALL PRTSTG
+        CALL CRLF
+                
         ;Enable interrupts
         EI
         
-        MVI D, 28H
+        ;MVI D, 28H
+        MVI D, 5	; JUST TEMP FOR EASIER DEBUGGING, RESTORE 28H LATER
 PATLOP:
         CALL CRLF
         DCR  D
@@ -2426,14 +2483,26 @@ INPIO_ROM
 MSG1:   DB   'TINY '
         DB   'BASIC'
         DB   CR
-CFMSG1: DB   'CF '
-        DB   'ERROR: '
+CFMSG1: DB	 'CF CARD: '
+		DB	 CR
+CFMSG2: DB	 'READING SECTOR 0 INTO RAM BUFFER'
+		DB	 CR
+PARTMS: DB	 'PARTITION TABLE'
+		DB	 CR
+CFSER:  DB   '    SN: '
+		DB   CR
+CFFW:	DB   '    FIRMWARE: '
+		DB   CR
+CFMOD:	DB   '    MODEL: '
+		DB	 CR
+CFLBAS: DB	 '    LBA SIZE: '
+		DB	 CR
+CFERRM: DB   'CF ERROR: '
         DB   CR
-KBDMSG: DB   'KEYBOARD '
-        DB   'INIT: '
+KBDMSG: DB   'INITIALIZING KEYBOARD'
         DB   CR
         
-CRTMSG: DB	 'Two roads diverged in a yellow wood, And sorry I could not travel both And be one traveler, long I stood And looked down one as far as I could To where it bent in the undergrowth;'
+;CRTMSG: DB	 'Two roads diverged in a yellow wood, And sorry I could not travel both And be one traveler, long I stood And looked down one as far as I could To where it bent in the undergrowth;'
 ;
 ;*************************************************************
 ;
