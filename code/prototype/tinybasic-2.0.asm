@@ -1609,9 +1609,13 @@ TRYKBINIT:
         LXI D, CFMSG2
         CALL PRTSTG
         CALL CRLF
-        CALL CFGETMBR
         LXI D, PARTMS
         CALL PRTSTG
+        CALL CRLF
+        CALL CFGETMBR
+        LXI D, BLKDAT+446
+        MVI B, 16
+        CALL HEXDUMP
         CALL CRLF
                 
         ;Enable interrupts

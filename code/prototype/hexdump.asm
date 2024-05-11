@@ -34,8 +34,9 @@ HEXDUMP_NIB:
 	MVI C, 48	;48 is 0 in ascii
 	ADD C
 	CPI 57+1	;57 is 9 in ascii
-	JNC HEXDUMP_NUM
+	JC HEXDUMP_NUM
 	MVI C, 65-57-1	;'A'-'9'-1
 	ADD C
 HEXDUMP_NUM:
 	CALL OUTC
+	RET
