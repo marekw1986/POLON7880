@@ -41,6 +41,7 @@ START:  LXI  H,STACK                   ;*** COLD START ***
 		INCL "vdp.asm"
 		INCL "keyboard.asm"
 		INCL "utils.asm"
+		INCL "hexdump.asm"
 
 
 TSTC:   XTHL                            ;*** TSTC OR RST 1 ***

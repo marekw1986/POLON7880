@@ -20,8 +20,8 @@ HEXDUMP_NIB:
 	MVI B, 48	;48 - 0 in ascii
 	ADD B
 	CPI 57+1	;57 - 9 in ascii
-	;jp m,.hexdump_num
+	JNC HEXDUMP_NUM
 	MVI B, 65-57-1	;'A'-'9'-1
 	ADD B
 HEXDUMP_NUM:
-	;send
+	CALL OUTC
