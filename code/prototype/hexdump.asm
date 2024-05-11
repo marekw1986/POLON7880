@@ -13,30 +13,25 @@ HEXDUMP:
 	JMP HEXDUMP
 
 ;Print the value in A in hex
-;Affects C
 HEXDUMP_A:
 	PUSH PSW
 	RRC
 	RRC
 	RRC
 	RRC
-	MVI C, 00FH
-	ANA C
+	ANI 00FH
 	CALL HEXDUMP_NIB
 	POP PSW
 	PUSH PSW
-	MVI C, 00FH
-	ANA C
+	ANI 00FH
 	CALL HEXDUMP_NIB
 	POP PSW
 	RET	
 HEXDUMP_NIB:
-	MVI C, 48	;48 is 0 in ascii
-	ADD C
+	ADI 48	;48 is 0 in ascii
 	CPI 57+1	;57 is 9 in ascii
 	JC HEXDUMP_NUM
-	MVI C, 65-57-1	;'A'-'9'-1
-	ADD C
+	ADI 65-57-1	;'A'-'9'-1
 HEXDUMP_NUM:
 	CALL OUTC
 	RET
