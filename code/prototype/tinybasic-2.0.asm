@@ -1856,7 +1856,7 @@ TAB8:                                   ;RELATION OPERATORS
         DB LOW(XP17)
 ;
 
-		INCL "fonts.asm"
+		INCL "fonts1.asm"
 		INCL "ps2_scancodes.asm"
 
 DIRECT: LXI  H,TAB1-1                   ;*** DIRECT ***
