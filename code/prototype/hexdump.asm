@@ -17,9 +17,9 @@ HEXDUMP_A:
 	POP PSW
 	RET	
 HEXDUMP_NIB:
-	MVI B, 48	;48 - 0 in ascii
+	MVI B, 48	;48 is 0 in ascii
 	ADD B
-	CPI 57+1	;57 - 9 in ascii
+	CPI 57+1	;57 is 9 in ascii
 	JNC HEXDUMP_NUM
 	MVI B, 65-57-1	;'A'-'9'-1
 	ADD B
