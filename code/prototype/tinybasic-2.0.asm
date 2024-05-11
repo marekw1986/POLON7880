@@ -800,6 +800,7 @@ KBDSCANTABLE_FOUND:
 		LDAX D							;Load ASCII code to A				
 		RET								;Then return
 		
+; Various utils
         
 DELAY:
         MVI B, 255
@@ -827,6 +828,48 @@ MC_LOOP:
         ORA C                           ;A = A | C      (set zero)
         JNZ MC_LOOP                     ;Jump to 'loop:' if the zero-flag is not set.   
         RET                             ;Return
+
+;PRINTS STRING POINTED BY DE AND TERMINATED WITH CR OR NULL
+;MAX NUMBER OF CHARACTERS IN B         
+PRNSTR:	MOV A, B
+		CPI 00H
+		RZ
+		LDAX D							;GET A CHARACTER
+		CPI CR
+		RZ
+		CPI 00H
+		RZ
+		CALL OUTC
+		INX D							
+		DCR B
+		JMP PRNSTR
+
+;SAWPS PAIR IN STRING POINTED BY DE UNTIL B REACH 0
+;B IS NUMBER OF PAIRS!!!
+SWPSTR: MOV A, B
+		CPI 00H
+		RZ
+		LDAX D
+		MOV H, A
+		INX D
+		LDAX D
+		MOV L, A
+		MOV A, H
+		STAX D
+		DCX D
+		MOV A, L
+		STAX D
+		INX D
+		INX D
+		DCR B
+		JMP SWPSTR
+
+;THIS IS JUSY ENDLESS LOOP. Go here if something is wrong.		
+ENDLESS_LOOP:
+		NOP
+		JMP ENDLESS_LOOP
+        
+
 
 TSTC:   XTHL                            ;*** TSTC OR RST 1 ***
         CALL IGNBLK                    ;IGNORE BLANKS AND
@@ -2115,43 +2158,7 @@ PS1:    LDAX D                          ;GET A CHARACTER
         CALL OUTC                          ;ELSE PRINT IT
         CPI  CR                         ;WAS IT A CR?
         JNZ  PS1                        ;NO, NEXT
-        RET                             ;YES, RETURN
-
-;PRINTS STRING POINTED BY DE AND TERMINATED WITH CR OR NULL
-;MAX NUMBER OF CHARACTERS IN B         
-PRNSTR:	MOV A, B
-		CPI 00H
-		RZ
-		LDAX D							;GET A CHARACTER
-		CPI CR
-		RZ
-		CPI 00H
-		RZ
-		CALL OUTC
-		INX D							
-		DCR B
-		JMP PRNSTR
-
-;SAWPS PAIR IN STRING POINTED BY DE UNTIL B REACH 0
-;B IS NUMBER OF PAIRS!!!
-SWPSTR: MOV A, B
-		CPI 00H
-		RZ
-		LDAX D
-		MOV H, A
-		INX D
-		LDAX D
-		MOV L, A
-		MOV A, H
-		STAX D
-		DCX D
-		MOV A, L
-		STAX D
-		INX D
-		INX D
-		DCR B
-		JMP SWPSTR
-		
+        RET                             ;YES, RETURN		
 		
 		
 ;
