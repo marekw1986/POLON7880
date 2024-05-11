@@ -10,7 +10,7 @@ HEXDUMP:
 	CALL OUTC
 	INX D
 	DCR B
-	JNZ HEXDUMP
+	JMP HEXDUMP
 
 ;Print the value in A in hex
 ;Affects C
