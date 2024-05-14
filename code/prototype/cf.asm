@@ -153,7 +153,7 @@ CFWSECT:
 PRN_PARTITION_TABLE:
         ;Print partition info
         ;Print partition 1 addres first
-        MVI A, 1;
+        MVI A, 1
         CALL PRN_IND_DIGIT
         LXI D, STARTADDRSTR
         MVI B, 6
@@ -200,7 +200,7 @@ PRN_PARTITION_TABLE:
         MVI B, 6
         CALL PRNSTR
         CALL PRN_ZERO_EX
-		LXI D, LOAD_BASE+478+8+3
+		LXI D, LOAD_BASE+478+12+3
 		CALL HEXDUMP32BITVAL
 		CALL CRLF
         ;Print partition 4 addres first
@@ -210,14 +210,14 @@ PRN_PARTITION_TABLE:
         MVI B, 6
         CALL PRNSTR
         CALL PRN_ZERO_EX
-        LXI D, LOAD_BASE+494+8+33
+        LXI D, LOAD_BASE+494+8+3
         CALL HEXDUMP32BITVAL_PLUS_SPACE
 		;Print size then
         LXI D, SIZESTR
         MVI B, 6
         CALL PRNSTR
         CALL PRN_ZERO_EX
-		LXI D, LOAD_BASE+494+8+3
+		LXI D, LOAD_BASE+494+12+3
 		CALL HEXDUMP32BITVAL
 		CALL CRLF
 		RET
