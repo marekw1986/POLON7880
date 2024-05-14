@@ -1606,17 +1606,18 @@ TRYKBINIT:
 
 		CALL CFINIT
         CALL CFINFO
-        LXI D, CFMSG2
-        CALL PRTSTG
-        CALL CRLF
+        ;LXI D, CFMSG2
+        ;CALL PRTSTG
+        ;CALL CRLF
         LXI D, PARTMS
         CALL PRTSTG
         CALL CRLF
         CALL CFGETMBR
-        LXI D, BLKDAT+446
-        MVI B, 16
-        CALL HEXDUMP
-        CALL CRLF
+        ;LXI D, LOAD_BASE+446
+        ;MVI B, 16
+        ;CALL HEXDUMP
+        ;CALL CRLF
+        CALL PRN_PARTITION_TABLE
                 
         ;Enable interrupts
         EI
@@ -1708,12 +1709,16 @@ MSG1:   DB   'TINY '
         DB   CR
 CFMSG1: DB	 'CF CARD: '
 		DB	 CR
-CFMSG2: DB	 'READING MBR SECTOR'
-		DB	 CR
-PARTMS: DB	 'PARTITION TABLE'
+PARTMS: DB	 'Partition table'
 		DB	 CR
 CFERRM: DB   'CF ERROR: '
         DB   CR
+STARTADDRSTR:
+		DB	 'Addr: '
+		DB	 CR
+SIZESTR:
+		DB	 'Size: '
+		DB	 CR
 KBDMSG: DB   'INITIALIZING KEYBOARD'
         DB   CR
         
@@ -2010,7 +2015,8 @@ IR7_VECT
 ;
 LSTROM:                                 ;ALL ABOVE CAN BE ROM
 ;       ORG  1000H                      ;HERE DOWN MUST BE RAM
-        ORG  0100H
+;       ORG  0100H
+		ORG  0200H
 OCSW    DB   0FFH      					;SWITCH FOR OUTPUT
 OUTIO:  DS   3
 WAITIO: DS   10

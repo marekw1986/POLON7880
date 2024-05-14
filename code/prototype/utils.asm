@@ -26,6 +26,43 @@ MC_LOOP:
         ORA C                           ;A = A | C      (set zero)
         JNZ MC_LOOP                     ;Jump to 'loop:' if the zero-flag is not set.   
         RET                             ;Return
+        
+PRN_IND_DIGIT:
+		ADI 48
+		CALL OUTC
+		MVI A, 46						;46 is a dot in ASCII
+		CALL OUTC
+		MVI A, 32						;32 is space in ASCII
+		CALL OUTC
+		RET
+		
+;PRINT_PART_START_ADDR:
+;		PUSH D
+;		CALL PRN_ZERO_EX
+;		LXI D, STARTADDRSTR
+;		MVI B, 12
+;		CALL PRNSTR
+;		POP D
+;		CALL HEXDUMP32BITVAL_PLUS_SPACE
+;		RET
+		
+;PRINT_PART_SIZE:
+;		PUSH D
+;		CALL PRN_ZERO_EX
+;		LXI D, SIZESTR
+;		MVI B, 6
+;		CALL PRNSTR
+;		POP D
+;		CALL HEXDUMP32BITVAL
+;		RET
+		
+PRN_ZERO_EX:
+		MVI A, 48					;48 is 0 in ASCII
+		CALL OUTC
+		MVI A, 120					;120 is x in ASCII
+		CALL OUTC
+		RET
+		
 
 ;PRINTS STRING POINTED BY DE AND TERMINATED WITH CR OR NULL
 ;MAX NUMBER OF CHARACTERS IN B         

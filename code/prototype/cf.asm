@@ -73,7 +73,7 @@ CFSLBA:
         OUT CFREG5	
         LDA CFLBA3		                ;LBA 3
         ANI 0FH	                        ;FILTER OUT LBA BITS
-        ORI 0F0H	                    ;MODE LBA, MASTER DEV
+        ORI 0E0H	                    ;MODE LBA, MASTER DEV
         OUT CFREG6
         RET
         
@@ -82,15 +82,16 @@ CFGETMBR:
 		OUT CFREG3						;LBA 0
 		OUT CFREG4						;LBA 1
 		OUT CFREG5						;LBA 2
-		ANI 0FH	                        ;FILTER OUT LBA BITS
-		ORI 0F0H	                    ;MODE LBA, MASTER DEV
+		;ANI 0FH	                        ;FILTER OUT LBA BITS
+		;ORI 0E0H	                    ;MODE LBA, MASTER DEV
+		MVI A, 0E0H
         OUT CFREG6
         MVI A, 01H
         OUT	CFREG2						;READ ONE SECTOR
 		CALL CFWAIT
 		MVI A, 20H						;READ SECTOR COMMAND
 		OUT	CFREG7
-		LXI	D, BLKDAT
+		LXI	D, LOAD_BASE
 		CALL CFREAD
 		CALL CFCHERR
 		RET        
@@ -99,73 +100,17 @@ CFINFO:
         CALL CFWAIT
         MVI	A, 0ECH	                    ;DRIVE ID COMMAND
         OUT	CFREG7
-        LXI	D, BLKDAT
+        LXI	D, LOAD_BASE
         CALL CFREAD
-        ;CALL CRLF
-;PRINT CFMSG
 		LXI D, CFMSG1
 		MVI B, 9
 		CALL PRNSTR
-		;CALL CRLF
-;PRINT SERIAL
-        ;LXI D, CFSER
-        ;CALL PRTSTG
-        ;LXI D, BLKDAT+20
-        ;MVI B, 10
-        ;CALL SWPSTR
-        ;LXI D, BLKDAT+20
-        ;MVI B, 20
-        ;CALL PRNSTR
-        ;CALL CRLF
-;PRINT FIRMWARE REV
-        ;LXI D, CFFW
-        ;CALL PRTSTG
-        ;LXI D, BLKDAT+46
-        ;MVI B, 4
-        ;CALL SWPSTR
-        ;LXI D, BLKDAT+46
-        ;MVI B, 8
-        ;CALL PRNSTR
-        ;CALL CRLF
-;PRINT MODEL NUMBER
-        ;LXI D, CFMOD
-        ;CALL PRTSTG
-        LXI D, BLKDAT+54
+        LXI D, LOAD_BASE+54
         MVI B, 20
         CALL SWPSTR
-        LXI D, BLKDAT+54
+        LXI D, LOAD_BASE+54
         MVI B, 40
         CALL PRNSTR
-        CALL CRLF
-;PRINT LBA SIZE
-        ;LXI D, CFLBAS
-        ;CALL PRTSTG
-        ;LDX	#BLKDAT+123
-        ;JSR	OUT2HS
-			;MVI C, 0
-			;LHLD BLKDAT+123
-			;CALL PRTNUM
-			;CALL CRLF
-        ;DEX
-        ;DEX
-        ;JSR	OUT2HS
-			;MVI C, 0
-			;LHLD BLKDAT+125
-			;CALL PRTNUM
-			;CALL CRLF
-        ;DEX
-        ;DEX
-        ;JSR	OUT2HS
-			;MVI C, 0
-			;LHLD BLKDAT+127
-			;CALL PRTNUM
-			;CALL CRLF
-        ;DEX
-        ;DEX
-        ;JSR	OUT2HS
-			;MVI C, 0
-			;LHLD BLKDAT+129
-			;CALL PRTNUM
         CALL CRLF
         RET        
         
@@ -176,7 +121,19 @@ CFRSECT:
 		CALL CFWAIT
 		MVI A, 20H						;READ SECTOR COMMAND
 		OUT	CFREG7
-		LXI	D, BLKDAT
+		LXI	D, LOAD_BASE
+		CALL CFREAD
+		CALL CFCHERR
+		RET
+		
+CFR32SECTORS:
+		CALL CFSLBA
+		MVI A, 20H						;Read 32 sectors
+		OUT CFREG2
+		CALL CFWAIT
+		MVI A, 20H
+		OUT CFREG7
+		LXI D, LOAD_BASE
 		CALL CFREAD
 		CALL CFCHERR
 		RET
@@ -188,7 +145,79 @@ CFWSECT:
         CALL CFWAIT
         MVI A, 30H                      ;WRITE SECTOR COMMAND
         OUT CFREG7
-        LXI D, BLKDAT
+        LXI D, LOAD_BASE
         CALL CFWRITE
         CALL CFCHERR
         RET
+
+PRN_PARTITION_TABLE:
+        ;Print partition info
+        ;Print partition 1 addres first
+        MVI A, 1;
+        CALL PRN_IND_DIGIT
+        LXI D, STARTADDRSTR
+        MVI B, 6
+        CALL PRNSTR
+        CALL PRN_ZERO_EX
+        LXI D, LOAD_BASE+446+8+3
+		CALL HEXDUMP32BITVAL_PLUS_SPACE
+        ;Print size then
+        LXI D, SIZESTR
+        MVI B, 6
+        CALL PRNSTR
+        CALL PRN_ZERO_EX
+        LXI D, LOAD_BASE+446+12+3
+        CALL HEXDUMP32BITVAL
+        CALL CRLF
+        ;Print partition 2 addres first    
+        MVI A, 2;
+        CALL PRN_IND_DIGIT
+        LXI D, STARTADDRSTR
+        MVI B, 6
+        CALL PRNSTR
+        CALL PRN_ZERO_EX
+        LXI D, LOAD_BASE+462+8+3
+		CALL HEXDUMP32BITVAL_PLUS_SPACE
+		;Print size then
+        LXI D, SIZESTR
+        MVI B, 6
+        CALL PRNSTR
+        CALL PRN_ZERO_EX
+		LXI D, LOAD_BASE+462+12+3
+		CALL HEXDUMP32BITVAL
+		CALL CRLF
+        ;Print partition 3 addres first
+        MVI A, 3;
+        CALL PRN_IND_DIGIT
+        LXI D, STARTADDRSTR
+        MVI B, 6
+        CALL PRNSTR
+        CALL PRN_ZERO_EX
+        LXI D, LOAD_BASE+478+8+3
+        CALL HEXDUMP32BITVAL_PLUS_SPACE
+		;Print size then
+        LXI D, SIZESTR
+        MVI B, 6
+        CALL PRNSTR
+        CALL PRN_ZERO_EX
+		LXI D, LOAD_BASE+478+8+3
+		CALL HEXDUMP32BITVAL
+		CALL CRLF
+        ;Print partition 4 addres first
+        MVI A, 4;
+        CALL PRN_IND_DIGIT
+        LXI D, STARTADDRSTR
+        MVI B, 6
+        CALL PRNSTR
+        CALL PRN_ZERO_EX
+        LXI D, LOAD_BASE+494+8+33
+        CALL HEXDUMP32BITVAL_PLUS_SPACE
+		;Print size then
+        LXI D, SIZESTR
+        MVI B, 6
+        CALL PRNSTR
+        CALL PRN_ZERO_EX
+		LXI D, LOAD_BASE+494+8+3
+		CALL HEXDUMP32BITVAL
+		CALL CRLF
+		RET
