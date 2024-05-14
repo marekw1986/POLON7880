@@ -1606,18 +1606,17 @@ TRYKBINIT:
 
 		CALL CFINIT
         CALL CFINFO
-        ;LXI D, CFMSG2
-        ;CALL PRTSTG
-        ;CALL CRLF
         LXI D, PARTMS
         CALL PRTSTG
         CALL CRLF
         CALL CFGETMBR
-        ;LXI D, LOAD_BASE+446
-        ;MVI B, 16
-        ;CALL HEXDUMP
-        ;CALL CRLF
         CALL PRN_PARTITION_TABLE
+        CALL LOAD_PARTITION1
+        
+        LXI D, LOAD_BASE
+        MVI B, 16
+        CALL HEXDUMP
+        CALL CRLF
                 
         ;Enable interrupts
         EI
