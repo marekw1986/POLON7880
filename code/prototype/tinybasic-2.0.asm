@@ -1610,6 +1610,23 @@ TRYKBINIT:
         CALL PRTSTG
         CALL CRLF
         CALL CFGETMBR
+        ; Check if MBR is proper
+        LXI D, LOAD_BASE+510
+        LDAX D
+        CPI 55H
+        JNZ LOG_FAULTY_MBR
+        INX D
+        LDAX D
+        CPI 0AAH
+        JNZ LOG_FAULTY_MBR
+        JMP LOG_PARTITION_TABLE
+LOG_FAULTY_MBR:
+		LXI D, MBRERRORSTR
+		MVI B, 17
+		CALL PRNSTR
+		CALL CRLF
+        JMP BOOT_TINY_BASIC
+LOG_PARTITION_TABLE:
         CALL PRN_PARTITION_TABLE
         CALL CRLF
         ; Print boot options
@@ -1761,6 +1778,9 @@ BOOTCFSTR:
 		DB	 CR
 BOOTTBSTR:
 		DB	 '2. Tiny Basic (ROM)'
+		DB	 CR
+MBRERRORSTR:
+		DB	 'ERROR: faulty MBR'
 		DB	 CR
 KBDMSG: DB   'INITIALIZING KEYBOARD'
         DB   CR
