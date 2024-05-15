@@ -1659,7 +1659,7 @@ BOOT_MODE_INPUT:
         CPI 49			; Is it 1?
         JZ BOOT_CPM		; It is, boot CPM
         CPI 50			; Is it 2?
-        JZ BOOT_TINY_BASIC	; Ir is, boot Tiny Basic
+        JZ BOOT_TINY_BASIC	; It is, boot Tiny Basic
         JMP BOOT_MODE_INPUT
         
 BOOT_CPM:
