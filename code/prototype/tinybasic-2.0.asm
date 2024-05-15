@@ -1606,9 +1606,6 @@ TRYKBINIT:
 
 		CALL CFINIT
         CALL CFINFO
-        LXI D, PARTMS
-        CALL PRTSTG
-        CALL CRLF
         CALL CFGETMBR
         ; Check if MBR is proper
         LXI D, LOAD_BASE+510
@@ -1627,8 +1624,45 @@ LOG_FAULTY_MBR:
 		CALL CRLF
         JMP BOOT_TINY_BASIC
 LOG_PARTITION_TABLE:
+        LXI D, PARTMS
+        CALL PRTSTG
+        CALL CRLF
         CALL PRN_PARTITION_TABLE
         CALL CRLF
+        ; Check if partition 1 is present
+        LXI D, LOAD_BASE+446+8		; Address of first partition
+        CALL ISZERO32BIT
+        JNZ CHECK_PARTITION1_SIZE
+        LXI D, MISSINGPART1ERROR
+        MVI B, 26
+        CALL PRNSTR
+        CALL CRLF
+        JMP BOOT_TINY_BASIC
+CHECK_PARTITION1_SIZE:
+		; Check if partition 1 is larger than 16kB (32 sectors)
+		LXI D, LOAD_BASE+446+12		; First partition size
+		LDAX D
+		CPI 32						; Check least significant byte
+		JZ PRINT_BOOT_OPTIONS		; It is equal. Good enough.
+		JNC PRINT_BOOT_OPTIONS		; It is bigger
+		INX D
+		LDAX D
+		CPI 00H
+		JNZ PRINT_BOOT_OPTIONS
+		INX D
+		LDAX D
+		CPI 00H
+		JNZ PRINT_BOOT_OPTIONS
+		INX D
+		LDAX D
+		CPI 00H
+		JNZ PRINT_BOOT_OPTIONS
+		LXI D, SIZEPART1ERROR
+		MVI B, 25
+		CALL PRNSTR
+		CALL CRLF
+		JMP BOOT_TINY_BASIC
+PRINT_BOOT_OPTIONS:
         ; Print boot options
         LXI D, BOOTMODESTR
         MVI B, 17
@@ -1668,11 +1702,10 @@ BOOT_CPM:
         MVI B, 16
         CALL HEXDUMP
         CALL CRLF
-                
-        ;Enable interrupts
-        ;EI
         
 BOOT_TINY_BASIC:
+        ;Enable interrupts
+        EI
         ;MVI D, 28H
         MVI D, 2	; JUST TEMP FOR EASIER DEBUGGING, RESTORE 28H LATER
 PATLOP:
@@ -1781,6 +1814,12 @@ BOOTTBSTR:
 		DB	 CR
 MBRERRORSTR:
 		DB	 'ERROR: faulty MBR'
+		DB	 CR
+MISSINGPART1ERROR:
+		DB	 'ERROR: partition 1 missing'
+		DB	 CR
+SIZEPART1ERROR:
+		DB	 'ERROR: partition 1 < 16kB'
 		DB	 CR
 KBDMSG: DB   'INITIALIZING KEYBOARD'
         DB   CR

@@ -99,6 +99,24 @@ SWPSTR: MOV A, B
 		DCR B
 		JMP SWPSTR
 
+; Checks if 32 variable pointed by DL is zero		
+ISZERO32BIT:
+		LDAX D
+		CPI 00H
+		RNZ
+		INX D
+		LDAX D
+		CPI 00H
+		RNZ
+		INX D
+		LDAX D
+		CPI 00H
+		RNZ
+		INX D
+		LDAX D
+		CPI 00H
+		RET
+
 ;THIS IS JUSY ENDLESS LOOP. Go here if something is wrong.		
 ENDLESS_LOOP:
 		NOP
