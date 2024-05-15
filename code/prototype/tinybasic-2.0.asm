@@ -1611,16 +1611,51 @@ TRYKBINIT:
         CALL CRLF
         CALL CFGETMBR
         CALL PRN_PARTITION_TABLE
-        CALL LOAD_PARTITION1
+        CALL CRLF
+        ; Print boot options
+        LXI D, BOOTMODESTR
+        MVI B, 17
+        CALL PRNSTR
+        CALL CRLF
+        LXI D, BOOTCFSTR
+        MVI B, 17
+        CALL PRNSTR
+        CALL CRLF
+        LXI D, BOOTTBSTR
+        MVI B, 19
+        CALL PRNSTR
+        CALL CRLF
+        ; We need interrupts for keyboard and timer support
+        EI
+		; Wait for user input
+BOOT_MODE_INPUT:
+		PUSH B
+		PUSH D
+		PUSH H
+		CALL KBD2ASCII
+		POP H
+		POP D
+		POP B
+		CPI  00H
+		JZ BOOT_MODE_INPUT
+        ANI  7FH  		; MASK BIT 7 OFF
+        CPI 49			; Is it 1?
+        JZ BOOT_CPM		; It is, boot CPM
+        CPI 50			; Is it 2?
+        JZ BOOT_TINY_BASIC	; Ir is, boot Tiny Basic
+        JMP BOOT_MODE_INPUT
         
+BOOT_CPM:
+        CALL LOAD_PARTITION1
         LXI D, LOAD_BASE
         MVI B, 16
         CALL HEXDUMP
         CALL CRLF
                 
         ;Enable interrupts
-        EI
+        ;EI
         
+BOOT_TINY_BASIC:
         ;MVI D, 28H
         MVI D, 2	; JUST TEMP FOR EASIER DEBUGGING, RESTORE 28H LATER
 PATLOP:
@@ -1717,6 +1752,15 @@ STARTADDRSTR:
 		DB	 CR
 SIZESTR:
 		DB	 'Size: '
+		DB	 CR
+BOOTMODESTR:
+		DB	 'Choose boot mode:'
+		DB	 CR
+BOOTCFSTR:
+		DB	 '1. CP/M (CF card)'
+		DB	 CR
+BOOTTBSTR:
+		DB	 '2. Tiny Basic (ROM)'
 		DB	 CR
 KBDMSG: DB   'INITIALIZING KEYBOARD'
         DB   CR
