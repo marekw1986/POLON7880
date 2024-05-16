@@ -9,22 +9,45 @@ CFINIT:
 		STA	CFLBA0
         MVI A, 04H
         OUT CFREG7
-        CALL CFWAIT
+        CALL CFWAIT_TMOUT
         MVI A, 0E0H		                ;LBA3=0, MASTER, MODE=LBA
         OUT	CFREG6
         MVI A, 01H		                ;8-BIT TRANSFERS
         OUT CFREG1
         MVI A, 0EFH		                ;SET FEATURE COMMAND
         OUT CFREG7
-        CALL CFWAIT
+        CALL CFWAIT_TMOUT
+        CPI 00H							;Check if wait loop timeouted
+        JNZ CFINIT_RET					;If so there is no point in checking error code
         CALL CFCHERR
+CFINIT_RET
         RET
 
 CFWAIT:
         IN CFREG7
         ANI 80H                         ;MASK OUT BUSY FLAG
         JNZ CFWAIT
-        RET	
+        RET
+        
+CFWAIT_TMOUT:
+		MVI C, 32
+CFWAIT_TMOUT_LOOP_EXT:
+		MVI B, 255
+CFWAIT_TMOUT_LOOP_INT:
+        IN CFREG7
+        ANI 80H                  		;MASK OUT BUSY FLAG
+        JZ CFWAIT_TMOUT_OK
+        DCR B
+        JNZ CFWAIT_TMOUT_LOOP_INT
+        DCR C
+        JZ CFWAIT_TMOUT_NOK
+        JMP CFWAIT_TMOUT_LOOP_EXT
+CFWAIT_TMOUT_OK:
+        MVI A, 00H						;OK result
+        RET
+CFWAIT_TMOUT_NOK:
+		MVI A, 01H						;CF card timeout
+		RET
 
 CFCHERR:	
         IN CFREG7
@@ -102,9 +125,6 @@ CFINFO:
         OUT	CFREG7
         LXI	D, LOAD_BASE
         CALL CFREAD
-		LXI D, CFMSG1
-		MVI B, 9
-		CALL PRNSTR
         LXI D, LOAD_BASE+54
         MVI B, 20
         CALL SWPSTR

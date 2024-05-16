@@ -1604,7 +1604,18 @@ TRYKBINIT:
         CALL PRTSTG
         CALL CRLF
 
+		LXI D, CFMSG1
+		MVI B, 9
+		CALL PRNSTR
 		CALL CFINIT
+		CPI 00H								; Check if CF_WAIT during initialization timeouted
+		JZ GET_CFINFO
+		LXI D, MISSINGSTR
+		MVI B, 7
+		CALL PRNSTR
+		CALL CRLF
+		JMP BOOT_TINY_BASIC
+GET_CFINFO:
         CALL CFINFO
         CALL CFGETMBR
         ; Check if MBR is proper
@@ -1792,6 +1803,9 @@ MSG1:   DB   'TINY '
         DB   'BASIC'
         DB   CR
 CFMSG1: DB	 'CF CARD: '
+		DB	 CR
+MISSINGSTR:
+		DB	 'missing'
 		DB	 CR
 PARTMS: DB	 'Partition table'
 		DB	 CR
