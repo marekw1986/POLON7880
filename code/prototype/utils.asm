@@ -1,4 +1,6 @@
 ; Various utils
+
+OUT_CHAR	EQU	VDPPUTC
     
 DELAY:
         MVI B, 255
@@ -29,11 +31,11 @@ MC_LOOP:
         
 PRN_IND_DIGIT:
 		ADI 48
-		CALL OUTC
+		CALL OUT_CHAR
 		MVI A, 46						;46 is a dot in ASCII
-		CALL OUTC
+		CALL OUT_CHAR
 		MVI A, 32						;32 is space in ASCII
-		CALL OUTC
+		CALL OUT_CHAR
 		RET
 		
 ;PRINT_PART_START_ADDR:
@@ -55,12 +57,19 @@ PRN_IND_DIGIT:
 ;		POP D
 ;		CALL HEXDUMP32BITVAL
 ;		RET
+
+NEWLINE:
+		MVI A, 0DH
+		CALL OUT_CHAR
+		;MVI A, 0AH					; Comment out when LF implementation
+		;CALL OUT_CHAR				; in VDP will be ready
+		RET
 		
 PRN_ZERO_EX:
 		MVI A, 48					;48 is 0 in ASCII
-		CALL OUTC
+		CALL OUT_CHAR
 		MVI A, 120					;120 is x in ASCII
-		CALL OUTC
+		CALL OUT_CHAR
 		RET
 		
 
@@ -74,7 +83,7 @@ PRNSTR:	MOV A, B
 		RZ
 		CPI 00H
 		RZ
-		CALL OUTC
+		CALL OUT_CHAR
 		INX D							
 		DCR B
 		JMP PRNSTR

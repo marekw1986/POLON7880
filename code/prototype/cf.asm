@@ -131,7 +131,7 @@ CFINFO:
         LXI D, LOAD_BASE+54
         MVI B, 40
         CALL PRNSTR
-        CALL CRLF
+        CALL NEWLINE
         RET        
         
 CFRSECT:
@@ -188,7 +188,7 @@ PRN_PARTITION_TABLE:
         CALL PRN_ZERO_EX
         LXI D, LOAD_BASE+446+12+3
         CALL HEXDUMP32BITVAL
-        CALL CRLF
+        CALL NEWLINE
         ;Print partition 2 addres first    
         MVI A, 2;
         CALL PRN_IND_DIGIT
@@ -205,7 +205,7 @@ PRN_PARTITION_TABLE:
         CALL PRN_ZERO_EX
 		LXI D, LOAD_BASE+462+12+3
 		CALL HEXDUMP32BITVAL
-		CALL CRLF
+		CALL NEWLINE
         ;Print partition 3 addres first
         MVI A, 3;
         CALL PRN_IND_DIGIT
@@ -222,7 +222,7 @@ PRN_PARTITION_TABLE:
         CALL PRN_ZERO_EX
 		LXI D, LOAD_BASE+478+12+3
 		CALL HEXDUMP32BITVAL
-		CALL CRLF
+		CALL NEWLINE
         ;Print partition 4 addres first
         MVI A, 4;
         CALL PRN_IND_DIGIT
@@ -239,7 +239,7 @@ PRN_PARTITION_TABLE:
         CALL PRN_ZERO_EX
 		LXI D, LOAD_BASE+494+12+3
 		CALL HEXDUMP32BITVAL
-		CALL CRLF
+		CALL NEWLINE
 		RET
 
 LOAD_PARTITION1:

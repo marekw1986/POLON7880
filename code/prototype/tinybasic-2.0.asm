@@ -1590,7 +1590,8 @@ INIT:   STA  OCSW
         ;CALL VDPWVRAM
 ;       Initialize keyboard
         LXI D, KBDMSG                       ;Print KBD Init message
-        CALL PRTSTG
+        MVI B, 21
+        CALL PRNSTR
 TRYKBINIT:
         CALL KBDINIT                        ;Call init routine
         MOV A, B							;Move result of operation to A
@@ -1601,8 +1602,9 @@ TRYKBINIT:
         ;MVI C, 02H
         ;CALL PRTNUM
         LXI D, OK
-        CALL PRTSTG
-        CALL CRLF
+        MVI B, 2
+        CALL PRNSTR
+        CALL NEWLINE
 
 		LXI D, CFMSG1
 		MVI B, 9
@@ -1613,7 +1615,7 @@ TRYKBINIT:
 		LXI D, MISSINGSTR
 		MVI B, 7
 		CALL PRNSTR
-		CALL CRLF
+		CALL NEWLINE
 		JMP BOOT_TINY_BASIC
 GET_CFINFO:
         CALL CFINFO
@@ -1632,14 +1634,15 @@ LOG_FAULTY_MBR:
 		LXI D, MBRERRORSTR
 		MVI B, 17
 		CALL PRNSTR
-		CALL CRLF
+		CALL NEWLINE
         JMP BOOT_TINY_BASIC
 LOG_PARTITION_TABLE:
         LXI D, PARTMS
-        CALL PRTSTG
-        CALL CRLF
+        MVI B, 15
+        CALL PRNSTR
+        CALL NEWLINE
         CALL PRN_PARTITION_TABLE
-        CALL CRLF
+        CALL NEWLINE
         ; Check if partition 1 is present
         LXI D, LOAD_BASE+446+8		; Address of first partition
         CALL ISZERO32BIT
@@ -1647,7 +1650,7 @@ LOG_PARTITION_TABLE:
         LXI D, MISSINGPART1ERROR
         MVI B, 26
         CALL PRNSTR
-        CALL CRLF
+        CALL NEWLINE
         JMP BOOT_TINY_BASIC
 CHECK_PARTITION1_SIZE:
 		; Check if partition 1 is larger than 16kB (32 sectors)
@@ -1671,22 +1674,22 @@ CHECK_PARTITION1_SIZE:
 		LXI D, SIZEPART1ERROR
 		MVI B, 25
 		CALL PRNSTR
-		CALL CRLF
+		CALL NEWLINE
 		JMP BOOT_TINY_BASIC
 PRINT_BOOT_OPTIONS:
         ; Print boot options
         LXI D, BOOTMODESTR
         MVI B, 17
         CALL PRNSTR
-        CALL CRLF
+        CALL NEWLINE
         LXI D, BOOTCFSTR
         MVI B, 17
         CALL PRNSTR
-        CALL CRLF
+        CALL NEWLINE
         LXI D, BOOTTBSTR
         MVI B, 19
         CALL PRNSTR
-        CALL CRLF
+        CALL NEWLINE
         ; We need interrupts for keyboard and timer support
         EI
 		; Wait for user input
@@ -1712,7 +1715,7 @@ BOOT_CPM:
         LXI D, LOAD_BASE
         MVI B, 16
         CALL HEXDUMP
-        CALL CRLF
+        CALL NEWLINE
         
 BOOT_TINY_BASIC:
         ;Enable interrupts
