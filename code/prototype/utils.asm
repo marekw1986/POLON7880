@@ -1,6 +1,16 @@
 ; Various utils
 
-OUT_CHAR	EQU	VDPPUTC
+OUT_CHAR:
+        PUSH PSW
+        PUSH B
+		PUSH D
+		PUSH H
+		CALL VDPPUTC
+		POP H
+		POP D
+		POP B
+		POP PSW
+		RET
     
 DELAY:
         MVI B, 255
