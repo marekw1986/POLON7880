@@ -1592,6 +1592,7 @@ INIT:   STA  OCSW
         LXI D, KBDMSG                       ;Print KBD Init message
         MVI B, 21
         CALL PRNSTR
+        CALL NEWLINE
 TRYKBINIT:
         CALL KBDINIT                        ;Call init routine
         MOV A, B							;Move result of operation to A
@@ -1712,10 +1713,10 @@ BOOT_MODE_INPUT:
         
 BOOT_CPM:
         CALL LOAD_PARTITION1
-        LXI D, LOAD_BASE
-        MVI B, 16
-        CALL HEXDUMP
+		CALL NEWLINE
         CALL NEWLINE
+        DI
+        JMP LOAD_BASE
         
 BOOT_TINY_BASIC:
         ;Enable interrupts
@@ -2153,7 +2154,8 @@ RANPNT: DS   2                          ;RANDOM NUMBER POINTER
 TXTUNF: DS   2                          ;->UNFILLED TEXT AREA
 TXTBGN: DS   2                          ;TEXT SAVE AREA BEGINS
 ;       ORG  1366H
-        ORG  1F00H
+;       ORG  1F00H
+		ORG	 4400H
 TXTEND: DS   0                          ;TEXT SAVE AREA ENDS
 VARBGN: DS   55                         ;VARIABLE @(0)
 BUFFER: DS   64                         ;INPUT BUFFER
