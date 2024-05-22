@@ -103,6 +103,13 @@ KBDWAITOUTBUF:
 		JZ KBDWAITOUTBUF
 		RET
 		
+KBD_PRESENT:
+		LDA KBDDATA					;Load latest received PS/2 scancode
+		CPI 00H						;Is it 0? (this is needed - LDA doesn't affect flags)
+		RZ
+		MVI A, 0FFH
+		RET
+		
 KBD2ASCII:
 		LDA KBDDATA					;Load latest received PS/2 scancode
 		CPI 00H						;Is it 0? (this is needed - LDA doesn't affect flags)
