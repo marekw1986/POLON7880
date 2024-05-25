@@ -24,65 +24,7 @@
 ; SECTION.  THEY CAN BE REACHED ONLY BY 3-BYTE CALLS.
 ;
 
-PORT_8212   		EQU		0E0H 
-UART_8251_DATA    	EQU     40H
-UART_8251_CTRL		EQU		41H
-PIC_8259_LOW		EQU		58H
-PIC_8259_HIGH		EQU		59H
-COUNT_REG_0_8253 	EQU 	48H
-COUNT_REG_1_8253 	EQU 	49H
-COUNT_REG_2_8253 	EQU 	4AH
-CONTR_W_8253 		EQU 	4BH
-KBD_DATA            EQU     50H
-KBD_STATUS          EQU     51H
-KBD_CMD             EQU     51H
-RTC_1_SEC_REG		EQU		00H
-RTC_10_SEC_REG		EQU		01H
-RTC_1_MIN_REG		EQU		02H
-RTC_10_MIN_REG		EQU		03H
-RTC_1_HOUR_REG		EQU		04H
-RTC_10_HOUR_REG		EQU		05H
-RTC_1_DAY_REG		EQU		06H
-RTC_10_DAY_REG		EQU		07H
-RTC_1_MON_REG		EQU		08H
-RTC_10_MON_REG		EQU		09H
-RTC_1_YEAR_REG		EQU		0AH
-RTC_10_YEAR_REG		EQU		0BH
-RTC_WEEK_REG		EQU		0CH
-RTC_CTRLD_REG		EQU		0DH
-RTC_CTRLE_REG		EQU		0EH
-RTC_CTRLF_REG		EQU		0FH
-
-;8253 config
-SEL_COUNTER_0 		EQU 	00H
-SEL_COUNTER_1 		EQU 	40H
-SEL_COUNTER_2 		EQU 	80H
-COUNTER_LATCHING 	EQU 	00H 
-RL_MSB_ONLY      	EQU 	20H
-RL_LSB_ONLY      	EQU 	10H
-RL_LSB_THEN_MSB  	EQU 	30H
-MODE_0 				EQU 	00H
-MODE_1 				EQU 	02H
-MODE_2 				EQU 	04H
-MODE_3 				EQU 	06H
-MODE_4 				EQU 	08H
-MODE_5 				EQU 	0AH
-BCD 				EQU 	01H
-BIN 				EQU 	00H
-
-TxRDY_MASK   		EQU 	01H
-RxRDY_MASK			EQU		02H	
-
-; CF REGS
-CFBASE              EQU     090H
-CFREG0              EQU     CFBASE+0	;DATA PORT
-CFREG1              EQU     CFBASE+1	;READ: ERROR CODE, WRITE: FEATURE
-CFREG2              EQU     CFBASE+2	;NUMBER OF SECTORS TO TRANSFER
-CFREG3              EQU     CFBASE+3	;SECTOR ADDRESS LBA 0 [0:7]
-CFREG4              EQU     CFBASE+4	;SECTOR ADDRESS LBA 1 [8:15]
-CFREG5              EQU     CFBASE+5	;SECTOR ADDRESS LBA 2 [16:23]
-CFREG6              EQU     CFBASE+6	;SECTOR ADDRESS LBA 3 [24:27 (LSB)]
-CFREG7              EQU     CFBASE+7	;READ: STATUS, WRITE: COMMAND
+		INCL "definitions.asm"
 
         ORG  0C000H
         JMP  SET_PC
@@ -95,389 +37,10 @@ START:  LXI  H,STACK                   ;*** COLD START ***
         JMP  INIT
 ;
 
-CFINIT:
-		MVI A, 00H
-		STA	CFLBA3
-		MVI A, 00H
-		STA	CFLBA2
-		MVI A, 00H
-		STA	CFLBA1
-		MVI A, 00H
-		STA	CFLBA0
-        MVI A, 04H
-        OUT CFREG7
-        CALL CFWAIT
-        MVI A, 0E0H		                ;LBA3=0, MASTER, MODE=LBA
-        OUT	CFREG6
-        MVI A, 01H		                ;8-BIT TRANSFERS
-        OUT CFREG1
-        MVI A, 0EFH		                ;SET FEATURE COMMAND
-        OUT CFREG7
-        CALL CFWAIT
-        CALL CFCHERR
-        RET
-
-CFWAIT:
-        IN CFREG7
-        ANI 80H                         ;MASK OUT BUSY FLAG
-        JNZ CFWAIT
-        RET	
-
-CFCHERR:	
-        IN CFREG7
-        ANI	01H		                    ;MASK OUT ERROR BIT
-        JZ	CFNERR
-        LXI D, CFMSG1
-        CALL PRTSTG
-        IN	CFREG1
-        MOV L, A
-        MVI H, 0H
-        MVI C, 4H
-        CALL PRTNUM
-CFNERR:	
-        RET    
-            
-CFREAD:
-        CALL CFWAIT
-        IN CFREG7
-        ANI	08H	                    ;FILTER OUT DRQ
-        JZ CFREADE
-        IN CFREG0		            ;READ DATA BYTE
-        STAX D
-        INX D
-        JMP	CFREAD
-CFREADE:
-        RET
-        
-CFWRITE:
-        CALL CFWAIT
-        IN CFREG7
-        ANI 08H                     ;FILTER OUT DRQ
-        JZ CFWRITEE
-        LDAX D
-        OUT CFREG0
-        INX D
-        JMP CFWRITE
-CFWRITEE:
-        RET
-        
-CFSLBA:
-        LDA CFLBA0		                ;LBA 0
-        OUT CFREG3
-        LDA CFLBA1		                ;LBA 1
-        OUT CFREG4
-        LDA CFLBA2		                ;LBA 2
-        OUT CFREG5	
-        LDA CFLBA3		                ;LBA 3
-        ANI 0FH	                        ;FILTER OUT LBA BITS
-        ORI 0F0H	                    ;MODE LBA, MASTER DEV
-        OUT CFREG6
-        RET
-        
-CFINFO:	
-        CALL CFWAIT
-        MVI	A, 0ECH	                    ;DRIVE ID COMMAND
-        OUT	CFREG7
-        LXI	D, BLKDAT
-        CALL CFREAD
-        ;LDX	#TCRLF
-        ;JSR	PDATA
-;PRINT SERIAL
-        ;LDX	#TSISER
-        ;JSR	PDATA
-        ;LDX	#BLKDAT+20
-        ;LDAB	#20
-        ;JSR	PRTRSN
-        ;LDX	#TCRLF
-        ;JSR	PDATA
-;PRINT FIRMWARE REV
-        ;LDX	#TSIFW
-        ;JSR	PDATA
-        ;LDX	#BLKDAT+46
-        ;LDAB	#8
-        ;JSR	PRTRN
-        ;LDX	#TCRLF
-        ;JSR	PDATA
-;PRINT MODEL NUMBER
-        ;LDX	#TSIMOD
-        ;JSR	PDATA
-        ;LDX	#BLKDAT+54
-        ;LDAB	#40
-        ;JSR	PRTRN
-        ;LDX	#TCRLF
-        ;JSR	PDATA
-;PRINT LBA SIZE
-        ;LDX	#TSILBA
-        ;JSR	PDATA
-        ;LDX	#BLKDAT+123
-        ;JSR	OUT2HS
-        ;DEX
-        ;DEX
-        ;JSR	OUT2HS
-        ;DEX
-        ;DEX
-        ;JSR	OUT2HS
-        ;DEX
-        ;DEX
-        ;JSR	OUT2HS
-        ;LDX	#TCRLF
-        ;JSR	PDATA
-        RET        
-        
-CFRSECT:
-		CALL CFSLBA						;SET LBA
-		MVI A, 01H
-		OUT	CFREG2						;READ ONE SECTOR
-		CALL CFWAIT
-		MVI A, 20H						;READ SECTOR COMMAND
-		OUT	CFREG7
-		LXI	D, BLKDAT
-		CALL CFREAD
-		CALL CFCHERR
-		RET
-        
-CFWSECT:
-        CALL CFSLBA                     ;SET LBA
-        MVI A, 01H
-        OUT CFREG2                      ;WRITE ONE SECTOR
-        CALL CFWAIT
-        MVI A, 30H                      ;WRITE SECTOR COMMAND
-        OUT CFREG7
-        LXI D, BLKDAT
-        CALL CFWRITE
-        CALL CFCHERR
-        RET
-
-;KBDINIT - initializes 8042/8242 PS/2 keyboard controller
-;Affects: A, B, C, Z
-;Returns result code in  B:
-;0x00 - OK
-;0x01 - Controller self test failed
-;0x02 - CLK stuck low
-;0x03 - CLK stuck high
-;0x04 - KBD DATA stuck low
-;0x05 - KBD DATA stuck high
-;0x06 - Interface didn't pass the test
-;0x07 - Keyboard reset failure/no keyboard present        
-KBDINIT:
-        ;1. Disable devices
-        CALL KBDWAITINBUF           ;Send 0xAD command to the PS/2 controller
-        MVI A, 0ADH
-        OUT KBD_CMD
-        ;2. Flush The Output Buffer
-        IN KBD_STATUS
-        ANI 01H                     ;Check if there is data to flush
-        JZ KBDCRTLSET              	;No? Next step then
-        IN KBD_DATA                 ;Yes? Get the data byte        
-KBDCRTLSET:
-        ;3. Set the Controller Configuration Byte (temp)
-        CALL KBDWAITINBUF			;Send 0x60 command to the PS/2 controller
-        MVI A, 60H
-        OUT KBD_CMD
-        CALL KBDWAITINBUF			;Send actual configuration byte
-        MVI A, 08H					;Interrupts disabled, system flag set, first port clock enabled
-		OUT KBD_DATA				;second port clock disabled, first port translation disabled
-        ;4. Controller self test
-		CALL KBDWAITINBUF
-        MVI A, 0AAH                 ;Send 0xAA command to the PS/2 controller
-        OUT KBD_CMD
-		CALL KBDWAITOUTBUF          ;Wait for response
-        IN KBD_DATA                 ;Get byte
-        CPI 55H                     ;Is it 0x55?
-        MVI B, 01H					;Return result code if not
-        RNZ                          ;No? Return then
-        ;5. Interface test
-		CALL KBDWAITINBUF
-        MVI A, 0ABH                 ;Send 0xAB command
-        OUT KBD_CMD
-		CALL KBDWAITOUTBUF          ;Wait for response
-        IN KBD_DATA                 ;Get byte
-        CPI 01H                     ;Check if it is CLK stuck low error
-        MVI B, 02H                  ;Return result code if it is
-        RZ                         
-        CPI 02H                     ;Check if it is CLK stuck high error
-        MVI B, 03H                  ;Return result code if it is
-        RZ                         
-        CPI 03H                     ;Check if it is KBD DATA stuck low error
-        MVI B, 04H                  ;Return result code if it is
-        RZ
-        CPI 04H                     ;Check if it is KBD DATA stuck high error
-        MVI B, 05H                  ;Return result code if it is
-        RZ                         
-        CPI 00H                     ;Is it 0x00? Did it pass the test?
-        MVI B, 06H					;Return result code if not
-        RNZ                          ;No? Return then
-        ;6. Enable Devices
-        CALL KBDWAITINBUF
-        MVI A, 0AEH                 ;Send 0xAE command
-        OUT KBD_CMD
-        ;7. Reset Device
-        CALL KBDWAITINBUF           ;Wait untill ready to send
-        MVI A, 0FFH                 ;Send 0xFF to device
-        OUT KBD_DATA                ;Send it to device, not the controller
-        MVI C, 130                  ;Setup DELAY routine
-        CALL DELAY                  ;This is required to avoid freeze
-        CALL KBDWAITOUTBUF          ;Wait for response
-        IN KBD_DATA                 ;Get byte
-        CPI 0FAH                    ;Is it 0xFA? 0xFC means failure. No response means no device present.
-        MVI B, 07H					;Return result code if not
-        RNZ                          ;No? Return then
-        ;8. Set the Controller Configuration Byte (final)
-        CALL KBDWAITINBUF			;Send 0x60 command to the PS/2 controller
-        MVI A, 60H
-        OUT KBD_CMD
-        CALL KBDWAITINBUF			;Send actual configuration byte
-        MVI A, 09H					;Interrupts enabled, system flag set, first port clock enabled (08H to disable interrupts)
-		OUT KBD_DATA				;second port clock disabled, first port translation disabled
-        ;9. Zero out buffer        
-        MVI A, 00H                  
-        STA KBDDATA					;Zero KBDDATA
-        STA KBDKRFL					;Zero key release flag
-        STA KBDSFFL					;Zero shift flag
-        STA KBDOLD					;Zero old data
-        STA KBDNEW					;Zero new data
-        MVI B, 00H					;Return result code
-        RET
-        
-KBDWAITINBUF:
-		;TODO: Timeout
-		IN KBD_STATUS
-		ANI 02H
-		JNZ KBDWAITINBUF
-		RET
-		
-KBDWAITOUTBUF:
-		;TODO: Timeout
-		IN KBD_STATUS
-		ANI 01H
-		JZ KBDWAITOUTBUF
-		RET
-		
-KBD2ASCII:
-		LDA KBDDATA					;Load latest received PS/2 scancode
-		CPI 00H						;Is it 0? (this is needed - LDA doesn't affect flags)
-		RZ							;Return if code = 0;
-		CPI 0F0H					;Is it 0xF0 (key release)?
-		JNZ KBD2A_CHKSFT			;If not, go to the next stage
-		MVI A, 01H					;Set key release flag
-		STA KBDKRFL
-		JMP KBD2A_CLRDATA_RETURN	;Zero out KBBDDATA and return
-KBD2A_CHKSFT:
-		CPI 12H						;Check if it is (left) shift code
-		JZ KBD2A_CHKKRSETSF			;If not, go to the next stage
-		CPI 59H						;Check if it is (right) shift code
-		JZ KBD2A_CHKKRSETSF			;If not, go to the next stage
-KBD2A_SVNEWDATA:
-		MOV B, A					;Save current code in B
-		LDA KBDNEW
-		STA KBDOLD					;Old data = new data
-		MOV A, B
-		STA KBDNEW					;New data = received code
-		LDA KBDKRFL
-		CPI 01H						;Check if key release flag is set
-        JNZ KBD2A_CHKSHFFLSET		;If not, go to the next stage
-        LDA KBDOLD					;Load old data to acumulator
-        MOV B, A
-        LDA KBDNEW
-        CMP B						;Compare acumulator with new data
-        JZ KBD2A_CLRKRFL			;If yes, clear release flag and return
-        NOP							;If not, handle error here.
-        NOP							;These are just a placeholders
-KBD2A_CLRKRFL:
-		MVI A, 00H
-		STA KBDKRFL
-		JMP KBD2A_CLRDATA_RETURN
-KBD2A_CHKSHFFLSET:
-		MVI L, 01H					;Just assume we are looking LC table
-		LDA KBDNEW					;Put newest key scancode in A
-		MOV B, A					;Then move it to B
-		LDA KBDSFFL					;Check shift flag
-		CPI 00H                     ;This is needed - LDA doesn't affect zero flag
-		JZ KBD2A_LOOKUP				;Just search in LC table
-		MVI L, 02H					;We are looking in UC table if shift flag is set
-KBD2A_LOOKUP		
-		CALL KBDSCANTABLE			;Call scantable searching subroutine
-		CPI 00H						;Check if it returned zero (this is needed)
-		JZ KBD2A_CLRDATA_RETURN		;If yes, clear data and return
-		MOV B, A					;Else clear KBDDATA and return
-		MVI A, 00H					;Passing ASCII character in A
-		STA KBDDATA
-		MOV A, B
-		RET
-KBD2A_CHKKRSETSF:        
-		LDA KBDKRFL
-		CPI 01H						;Check if key release flag is set
-		JZ KBD2A_CLRFLDATA_RETURN	;If yes clear flags (and data?) and return
-		MVI A, 01H					;If not, set shift flag
-		STA KBDSFFL
-		JMP KBD2A_CLRDATA_RETURN    ;Clear KBDDATA and return        
-KBD2A_CLRFLDATA_RETURN:
-		MVI A, 00H
-		STA KBDSFFL
-		STA KBDKRFL
-KBD2A_CLRDATA_RETURN:
-        MVI A, 00H
-		STA KBDDATA		
-		RET
-		
-; Current scancode must be loaded to B
-; Shift in L
-; Uses A, C, DE, HL		
-KBDSCANTABLE:
-		LXI D, PS2_SCANCODES  			;Table address
-		MVI H, 00H						; Make sure that H is zero
-KBDSCANTABLE_LOOP:
-		LDAX D				        	;Load next scancode from table to A
-		CMP B							;Compare A with current receivedscancode (stored in B)
-		JZ KBDSCANTABLE_FOUND
-		INX D                       	;Increment index pointer three times
-		INX D                       	;To go to the next scancode
-		INX D
-		MOV A, D						;Move high address stored in DE to A
-		MVI C, HIGH(PS2_SCANCODES_END)	;High byte of address of scandoce table end in C
-		CMP C							;Compare A with C
-		JNZ KBDSCANTABLE_REL
-		MOV A, E						;Move low address stored in DE to A
-		MVI C, LOW(PS2_SCANCODES_END)	;Low byte of address of scandoce table end in C
-		CMP C							;Compare A with C
-KBDSCANTABLE_REL:
-		JC KBDSCANTABLE_LOOP
-		MVI A, 00H                     	;End of the loop, return zero
-		RET
-KBDSCANTABLE_FOUND:
-		DAD D							;Add DE to HL
-		MOV D, H						;Move result back to DE
-		MOV E, L
-		LDAX D							;Load ASCII code to A				
-		RET								;Then return
-		
-        
-DELAY:
-        MVI B, 255
-PETLA_DEL_WEWN:
-        NOP
-        NOP
-        DCR B
-        JNZ PETLA_DEL_WEWN                          
-        DCR C
-        RZ
-        JMP DELAY        
-        
-
-MEMCOPY:
-        MOV A, B                        ;Copy register B to register A
-        ORA C                           ;Bitwise OR of register A and register C into register A
-        RZ                              ;Return if the zero-flag is set high.
-MC_LOOP:
-        LDAX D                          ;Load A from the address pointed by DE
-        MOV M, A                        ;Store A into the address pointed by HL
-        INX D                           ;Increment DE
-        INX H                           ;Increment HL
-        DCX B                           ;Decrement BC   (does not affect Flags)
-        MOV A, B                        ;Copy B to A    (so as to compare BC with zero)
-        ORA C                           ;A = A | C      (set zero)
-        JNZ MC_LOOP                     ;Jump to 'loop:' if the zero-flag is not set.   
-        RET                             ;Return
+		INCL "cf.asm"
+		INCL "keyboard.asm"
+		INCL "utils.asm"
+		INCL "hexdump.asm"
 
 TSTC:   XTHL                            ;*** TSTC OR RST 1 ***
         CALL IGNBLK                    ;IGNORE BLANKS AND
@@ -2096,11 +1659,40 @@ INPIO_ROM
 MSG1:   DB   'TINY '
         DB   'BASIC'
         DB   CR
-CFMSG1: DB   'CF '
-        DB   'ERROR: '
+CFMSG1: DB	 'CF CARD: '
+		DB	 CR
+MISSINGSTR:
+		DB	 'missing'
+		DB	 CR
+PARTMS: DB	 'Partition table'
+		DB	 CR
+CFERRM: DB   'CF ERROR: '
         DB   CR
-KBDMSG: DB   'KEYBOARD '
-        DB   'INIT: '
+STARTADDRSTR:
+		DB	 'Addr: '
+		DB	 CR
+SIZESTR:
+		DB	 'Size: '
+		DB	 CR
+BOOTMODESTR:
+		DB	 'Choose boot mode:'
+		DB	 CR
+BOOTCFSTR:
+		DB	 '1. CP/M (CF card)'
+		DB	 CR
+BOOTTBSTR:
+		DB	 '2. Tiny Basic (ROM)'
+		DB	 CR
+MBRERRORSTR:
+		DB	 'ERROR: faulty MBR'
+		DB	 CR
+MISSINGPART1ERROR:
+		DB	 'ERROR: partition 1 missing'
+		DB	 CR
+SIZEPART1ERROR:
+		DB	 'ERROR: partition 1 < 16kB'
+		DB	 CR
+KBDMSG: DB   'INITIALIZING KEYBOARD'
         DB   CR
 
 ;
@@ -2246,168 +1838,8 @@ TAB8:                                   ;RELATION OPERATORS
         DB LOW(XP17)
 ;
 
-CHARS:
-        ;This is the IBM-PC Character ROM +20H
-        DB 000H,000H,000H,000H,000H,000H,000H,000H ;SP
-        DB 030H,078H,078H,030H,030H,000H,030H,000H ;!
-        DB 06CH,06CH,06CH,000H,000H,000H,000H,000H ;"
-        DB 06CH,06CH,0FEH,06CH,0FEH,06CH,06CH,000H ;#
-        DB 030H,07CH,0C0H,078H,00CH,0F8H,030H,000H ;$
-        DB 000H,0C6H,0CCH,018H,030H,066H,0C6H,000H ;%
-        DB 038H,06CH,038H,076H,0DCH,0CCH,076H,000H ;&
-        DB 060H,060H,0C0H,000H,000H,000H,000H,000H ;'
-        DB 018H,030H,060H,060H,060H,030H,018H,000H ;(
-        DB 060H,030H,018H,018H,018H,030H,060H,000H ;)
-        DB 000H,066H,03CH,0FFH,03CH,066H,000H,000H ;*
-        DB 000H,030H,030H,0FCH,030H,030H,000H,000H ;+
-        DB 000H,000H,000H,000H,000H,030H,030H,060H ;'
-        DB 000H,000H,000H,0FCH,000H,000H,000H,000H ;-
-        DB 000H,000H,000H,000H,000H,030H,030H,000H ;.
-        DB 006H,00CH,018H,030H,060H,0C0H,080H,000H ;/
-        DB 07CH,0C6H,0CEH,0DEH,0F6H,0E6H,07CH,000H ;30, 0
-        DB 030H,070H,030H,030H,030H,030H,0FCH,000H ;31, 1
-        DB 078H,0CCH,00CH,038H,060H,0CCH,0FCH,000H ;32, 2
-        DB 078H,0CCH,00CH,038H,00CH,0CCH,078H,000H ;33, 3
-        DB 01CH,03CH,06CH,0CCH,0FEH,00CH,01EH,000H ;34, 4
-        DB 0FCH,0C0H,0F8H,00CH,00CH,0CCH,078H,000H ;35, 5
-        DB 038H,060H,0C0H,0F8H,0CCH,0CCH,078H,000H ;36, 6
-        DB 0FCH,0CCH,00CH,018H,030H,030H,030H,000H ;37, 7
-        DB 078H,0CCH,0CCH,078H,0CCH,0CCH,078H,000H ;38, 8
-        DB 078H,0CCH,0CCH,07CH,00CH,018H,070H,000H ;39, 9
-        DB 000H,030H,030H,000H,000H,030H,030H,000H ;:
-        DB 000H,030H,030H,000H,000H,030H,030H,060H ;;
-        DB 018H,030H,060H,0C0H,060H,030H,018H,000H ;<
-        DB 000H,000H,0FCH,000H,000H,0FCH,000H,000H ;=
-        DB 060H,030H,018H,00CH,018H,030H,060H,000H ;>
-        DB 078H,0CCH,00CH,018H,030H,000H,030H,000H ;?
-        DB 07CH,0C6H,0DEH,0DEH,0DEH,0C0H,078H,000H ;@
-        DB 030H,078H,0CCH,0CCH,0FCH,0CCH,0CCH,000H ;A
-        DB 0FCH,066H,066H,07CH,066H,066H,0FCH,000H ;B
-        DB 03CH,066H,0C0H,0C0H,0C0H,066H,03CH,000H ;C
-        DB 0F8H,06CH,066H,066H,066H,06CH,0F8H,000H ;D
-        DB 0FEH,062H,068H,078H,068H,062H,0FEH,000H ;E
-        DB 0FEH,062H,068H,078H,068H,060H,0F0H,000H ;F
-        DB 03CH,066H,0C0H,0C0H,0CEH,066H,03EH,000H ;G
-        DB 0CCH,0CCH,0CCH,0FCH,0CCH,0CCH,0CCH,000H ;H
-        DB 078H,030H,030H,030H,030H,030H,078H,000H ;I
-        DB 01EH,00CH,00CH,00CH,0CCH,0CCH,078H,000H ;J
-        DB 0E6H,066H,06CH,078H,06CH,066H,0E6H,000H ;K
-        
-        DB 0F0H,060H,060H,060H,062H,066H,0FEH,000H ;L
-        DB 0C6H,0EEH,0FEH,0FEH,0D6H,0C6H,0C6H,000H ;M
-        DB 0C6H,0E6H,0F6H,0DEH,0CEH,0C6H,0C6H,000H ;N
-        DB 038H,06CH,0C6H,0C6H,0C6H,06CH,038H,000H ;O
-        DB 0FCH,066H,066H,07CH,060H,060H,0F0H,000H ;P
-        DB 078H,0CCH,0CCH,0CCH,0DCH,078H,01CH,000H ;Q
-        DB 0FCH,066H,066H,07CH,06CH,066H,0E6H,000H ;R
-        DB 078H,0CCH,0E0H,070H,01CH,0CCH,078H,000H ;S
-        DB 0FCH,0B4H,030H,030H,030H,030H,078H,000H ;T
-        DB 0CCH,0CCH,0CCH,0CCH,0CCH,0CCH,0FCH,000H ;U
-        DB 0CCH,0CCH,0CCH,0CCH,0CCH,078H,030H,000H ;V
-        DB 0C6H,0C6H,0C6H,0D6H,0FEH,0EEH,0C6H,000H ;W
-        DB 0C6H,0C6H,06CH,038H,038H,06CH,0C6H,000H ;X
-        DB 0CCH,0CCH,0CCH,078H,030H,030H,078H,000H ;Y
-        DB 0FEH,0C6H,08CH,018H,032H,066H,0FEH,000H ;Z
-        DB 078H,060H,060H,060H,060H,060H,078H,000H ;[
-        DB 0C0H,060H,030H,018H,00CH,006H,002H,000H
-        ;
-        
-        DB 078H,018H,018H,018H,018H,018H,078H,000H ;]
-        DB 010H,038H,06CH,0C6H,000H,000H,000H,000H ;^
-        DB 000H,000H,000H,000H,000H,000H,000H,0FFH ;_
-        DB 030H,030H,018H,000H,000H,000H,000H,000H ;'
-        DB 000H,000H,078H,00CH,07CH,0CCH,076H,000H ;a
-        DB 0E0H,060H,060H,07CH,066H,066H,0DCH,000H ;b
-        DB 000H,000H,078H,0CCH,0C0H,0CCH,078H,000H ;c
-        DB 01CH,00CH,00CH,07CH,0CCH,0CCH,076H,000H ;d
-        DB 000H,000H,078H,0CCH,0FCH,0C0H,078H,000H ;e
-        DB 038H,06CH,060H,0F0H,060H,060H,0F0H,000H ;f
-        DB 000H,000H,076H,0CCH,0CCH,07CH,00CH,0F8H ;g
-        DB 0E0H,060H,06CH,076H,066H,066H,0E6H,000H ;h
-        DB 030H,000H,070H,030H,030H,030H,078H,000H ;i
-        DB 00CH,000H,00CH,00CH,00CH,0CCH,0CCH,078H ;j
-        DB 0E0H,060H,066H,06CH,078H,06CH,0E6H,000H ;k
-        DB 070H,030H,030H,030H,030H,030H,078H,000H ;l
-        DB 000H,000H,0CCH,0FEH,0FEH,0D6H,0C6H,000H ;m
-        DB 000H,000H,0F8H,0CCH,0CCH,0CCH,0CCH,000H ;n
-        DB 000H,000H,078H,0CCH,0CCH,0CCH,078H,000H ;o
-        DB 000H,000H,0DCH,066H,066H,07CH,060H,0F0H ;p
-        DB 000H,000H,076H,0CCH,0CCH,07CH,00CH,01EH ;q
-        DB 000H,000H,0DCH,076H,066H,060H,0F0H,000H ;r
-        DB 000H,000H,07CH,0C0H,078H,00CH,0F8H,000H ;s
-        DB 010H,030H,07CH,030H,030H,034H,018H,000H ;t
-        DB 000H,000H,0CCH,0CCH,0CCH,0CCH,076H,000H ;u
-        DB 000H,000H,0CCH,0CCH,0CCH,078H,030H,000H ;v
-        DB 000H,000H,0C6H,0D6H,0FEH,0FEH,06CH,000H ;w
-        DB 000H,000H,0C6H,06CH,038H,06CH,0C6H,000H ;x
-        DB 000H,000H,0CCH,0CCH,0CCH,07CH,00CH,0F8H ;y
-        DB 000H,000H,0FCH,098H,030H,064H,0FCH,000H ;z
-        DB 01CH,030H,030H,0E0H,030H,030H,01CH,000H ;{
-        DB 018H,018H,018H,000H,018H,018H,018H,000H ;|
-        DB 0E0H,030H,030H,01CH,030H,030H,0E0H,000H ;}
-        DB 076H,0DCH,000H,000H,000H,000H,000H,000H ;~
-        DB 000H,010H,038H,06CH,0C6H,0C6H,0FEH,00CH ;DEL
-        ;
-CHARS_END:
-
-PL_CHARS:
-
-PL_CHARS_END:
-
-PS2_SCANCODES:
-		DB 0EH, '`', '~'
-		DB 16H, '1', '!'
-		DB 1EH, '2', '@'
-		DB 26H,	'3', '#'
-		DB 25H,	'4', '$'
-		DB 2EH,	'5', '%'
-		DB 36H, '6', '^'
-		DB 3DH,	'7', '&'
-		DB 3EH, '8', '*'
-		DB 46H, '9', '('
-		DB 45H,	'0', ')'
-		DB 4EH, '-', '_'
-		DB 55H, '=', '+'
-		DB 66H, 08H, 08H				;Bacspace here!!!!
-		DB 0DH, 09H, 09H				;TAB here!!!!!
-		DB 15H, 'q', 'Q'
-		DB 1DH, 'w', 'W'
-		DB 24H, 'e', 'E'
-		DB 2DH, 'r', 'R'
-		DB 2CH, 't', 'T'
-		DB 35H, 'y', 'Y'
-		DB 3CH, 'u', 'U'
-		DB 43H, 'i', 'I'
-		DB 44H, 'o', 'O'
-		DB 4DH, 'p', 'P'
-		DB 54H, '[', '{'
-		DB 5BH, ']', '}'
-		DB 58H, 00H, 00H				;CAPSLOCK here!!!!
-		DB 1CH, 'a', 'A'
-		DB 1BH, 's', 'S'
-		DB 23H, 'd', 'D'
-		DB 2BH, 'f', 'F'
-		DB 34H, 'g', 'G'
-		DB 33H, 'h', 'H'
-		DB 3BH, 'j', 'J'
-		DB 42H, 'k', 'K'
-		DB 4BH, 'l', 'L'
-		DB 4CH, ';', ':'
-		DB 52H, 27H, 22H				; ' and "
-		DB 5AH, 0DH, 0DH				;ENTER here!!!!!
-		DB 1AH, 'z', 'Z'
-		DB 22H, 'x', 'X'
-		DB 21H, 'c', 'C'
-		DB 2AH, 'v', 'V'
-		DB 32H, 'b', 'B'
-		DB 31H, 'n', 'N'
-		DB 3AH, 'm', 'M'
-		DB 41H, ',', '<'
-		DB 49H, '.', '>'
-		DB 4AH, '/', '?'
-		DB 29H, ' ', ' '
-		DB 76H, 03H, 03H				;Ctrl+C
-PS2_SCANCODES_END: 
+		INCL "fonts1.asm"
+		INCL "ps2_scancodes.asm"
 
 DIRECT: LXI  H,TAB1-1                   ;*** DIRECT ***
 ;
