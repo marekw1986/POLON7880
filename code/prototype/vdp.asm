@@ -186,12 +186,13 @@ VDPPUTC_CHLF
 VDPPUTC_CHCR:
 		CPI 0DH
 		JNZ VDPPUTC_SEND
-		CALL VDPCLCURSOR				;Cler cursor first
+		CALL VDPCLCURSOR				;Clear cursor first
 		CALL NEXTLINE
+		CALL VDP_CHECKCURSOR
 		RET
 VDPPUTC_SEND:
 		PUSH PSW
-		CALL VDPPUTC_CHECKCURSOR
+		CALL VDP_CHECKCURSOR
 		POP PSW
 		MOV B, A						;Store A in B
 		;Add CURSOR to the address of NAME TABLE in VRAM
@@ -227,19 +228,19 @@ VDPPUTC_RET:
 		OUT VDP_DATA					;Now simpluy send the character		
 		RET
 		
-VDPPUTC_CHECKCURSOR:
+VDP_CHECKCURSOR:
 		;NOW WE NEED TO CHECK IF VDP_CURSOR IS HIGHTER THAN 960 (0x3C0)
 		LDA CURSOR+1
 		CPI 03H
 		RC								;CURSOR+1 < 0x03 - it is in range. We can return
-		JZ VDPPUTC_CHECKCURSORLSB		;CURSOR+1 = 0x03 - we need to check LSB to be sure
-		JMP VDPUTC_EXCEEDED				;Otherwise CURSOR+1 > 0x03
-VDPPUTC_CHECKCURSORLSB:		
+		JZ VDP_CHECKCURSORLSB		;CURSOR+1 = 0x03 - we need to check LSB to be sure
+		JMP VDP_EXCEEDED				;Otherwise CURSOR+1 > 0x03
+VDP_CHECKCURSORLSB:		
 		;CURSOR is equal to 0x03. We need to test lower byte! CHECK THIS!!!!!!!!!!!!!!!!
 		LDA CURSOR
 		CPI 0C0H
 		RC								;CURSOR < 0xC0 - it is in range. We can return. Otherwise exceeded.	
-VDPUTC_EXCEEDED:
+VDP_EXCEEDED:
 		CALL VDPSCROLLUP
 		MVI A, 98H
 		STA CURSOR
