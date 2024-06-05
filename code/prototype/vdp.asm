@@ -107,6 +107,11 @@ VDPSCROLLUP:
 		LXI D, 0B98H
 		LXI H, 0028H 
 		CALL VDPZEROVRAM
+		;Calculate new cursor position
+		MVI A, 98H
+		STA CURSOR
+		MVI A, 03H
+		STA CURSOR+1
 		RET
 
 ;RAM ADDRESS IN BC, VRAM ADDRES IN DE, DATA LENGTH IN HL        
@@ -233,8 +238,8 @@ VDP_CHECKCURSOR:
 		LDA CURSOR+1
 		CPI 03H
 		RC								;CURSOR+1 < 0x03 - it is in range. We can return
-		JZ VDP_CHECKCURSORLSB		;CURSOR+1 = 0x03 - we need to check LSB to be sure
-		JMP VDP_EXCEEDED				;Otherwise CURSOR+1 > 0x03
+		JZ VDP_CHECKCURSORLSB			;CURSOR+1 = 0x03 - we need to check LSB to be sure
+		CALL VDPSCROLLUP				;Otherwise CURSOR+1 > 0x03
 VDP_CHECKCURSORLSB:		
 		;CURSOR is equal to 0x03. We need to test lower byte! CHECK THIS!!!!!!!!!!!!!!!!
 		LDA CURSOR
@@ -242,10 +247,6 @@ VDP_CHECKCURSORLSB:
 		RC								;CURSOR < 0xC0 - it is in range. We can return. Otherwise exceeded.	
 VDP_EXCEEDED:
 		CALL VDPSCROLLUP
-		MVI A, 98H
-		STA CURSOR
-		MVI A, 03H
-		STA CURSOR+1
 		RET
 		
 		
@@ -266,6 +267,18 @@ VDPCLCURSOR:
 		
 		
 NEXTLINE:
+		; Check if we are in the last line
+		LDA CURSOR+1
+		CPI 03H
+		JC NLCALCULATE					;MSB < 0x03. We are definately in range. Just calculate new cursor position.
+		LDA CURSOR
+		CPI 97H
+		JC NLCALCULATE					;LSB < 97. We are definately in range. Just calculate new cursor position.
+		JZ NLCALCULATE					;Also if it is equal. TODO - check if this is valid
+		; Otherwise we are in the las line. Scrollup!
+		CALL VDPSCROLLUP
+		RET
+NLCALCULATE:
 		LDA CURSOR+1					;Load CURSOR MSB
 		MOV B, A						;Move it to B
 		LDA CURSOR						;Load CURSOR LSB, it stays in A
