@@ -118,6 +118,31 @@ SWPSTR: MOV A, B
 		DCR B
 		JMP SWPSTR
 
+IPUTS:
+		XTHL
+		CALL PUTS_LOOP
+		INX H
+		XTHL
+		RET
+		
+PUTS:
+		PUSH H
+		PUSH D
+		CALL PUTS_LOOP
+		POP D
+		POP H
+		RET
+PUTS_LOOP:
+		MOV D, H
+		MOV E, L
+		LDAX D
+		CPI 00H
+		RZ					; If a is zero, return
+		CALL OUT_CHAR
+		INX H
+		JMP PUTS_LOOP
+
+
 ; Checks if 32 variable pointed by DL is zero		
 ISZERO32BIT:
 		LDAX D

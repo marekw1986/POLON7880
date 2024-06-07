@@ -1589,9 +1589,9 @@ INIT:   STA  OCSW
         ;LXI H, 179
         ;CALL VDPWVRAM
 ;       Initialize keyboard
-        LXI D, KBDMSG                       ;Print KBD Init message
-        MVI B, 21
-        CALL PRNSTR
+		CALL IPUTS							;Print KBD Init message
+		DB 'INITIALIZING KEYBOARD'
+		DB 00H
         CALL NEWLINE
 TRYKBINIT:
         CALL KBDINIT                        ;Call init routine
@@ -1602,20 +1602,20 @@ TRYKBINIT:
         ;MVI H, 00H
         ;MVI C, 02H
         ;CALL PRTNUM
-        LXI D, OK
-        MVI B, 2
-        CALL PRNSTR
+        CALL IPUTS
+        DB "OK"
+        DB 00H
         CALL NEWLINE
 
-		LXI D, CFMSG1
-		MVI B, 9
-		CALL PRNSTR
+		CALL IPUTS
+		DB 'CF CARD: '
+		DB 00H
 		CALL CFINIT
 		CPI 00H								; Check if CF_WAIT during initialization timeouted
 		JZ GET_CFINFO
-		LXI D, MISSINGSTR
-		MVI B, 7
-		CALL PRNSTR
+		CALL IPUTS
+		DB 'missing'
+		DB 00H
 		CALL NEWLINE
 		JMP BOOT_TINY_BASIC
 GET_CFINFO:
@@ -1632,15 +1632,15 @@ GET_CFINFO:
         JNZ LOG_FAULTY_MBR
         JMP LOG_PARTITION_TABLE
 LOG_FAULTY_MBR:
-		LXI D, MBRERRORSTR
-		MVI B, 17
-		CALL PRNSTR
+		CALL IPUTS
+		DB 'ERROR: faulty MBR'
+		DB 00H
 		CALL NEWLINE
         JMP BOOT_TINY_BASIC
 LOG_PARTITION_TABLE:
-        LXI D, PARTMS
-        MVI B, 15
-        CALL PRNSTR
+		CALL IPUTS
+		DB 'Partition table'
+		DB 00H
         CALL NEWLINE
         CALL PRN_PARTITION_TABLE
         CALL NEWLINE
@@ -1648,9 +1648,9 @@ LOG_PARTITION_TABLE:
         LXI D, LOAD_BASE+446+8		; Address of first partition
         CALL ISZERO32BIT
         JNZ CHECK_PARTITION1_SIZE
-        LXI D, MISSINGPART1ERROR
-        MVI B, 26
-        CALL PRNSTR
+        CALL IPUTS
+		DB 'ERROR: partition 1 missing'
+		DB 00H
         CALL NEWLINE
         JMP BOOT_TINY_BASIC
 CHECK_PARTITION1_SIZE:
@@ -1672,24 +1672,24 @@ CHECK_PARTITION1_SIZE:
 		LDAX D
 		CPI 00H
 		JNZ PRINT_BOOT_OPTIONS
-		LXI D, SIZEPART1ERROR
-		MVI B, 25
-		CALL PRNSTR
+		CALL IPUTS
+		DB 'ERROR: partition 1 < 16kB'
+		DB 00H
 		CALL NEWLINE
 		JMP BOOT_TINY_BASIC
 PRINT_BOOT_OPTIONS:
         ; Print boot options
-        LXI D, BOOTMODESTR
-        MVI B, 17
-        CALL PRNSTR
+        CALL IPUTS
+		DB 'Choose boot mode:'
+		DB 00H
         CALL NEWLINE
-        LXI D, BOOTCFSTR
-        MVI B, 17
-        CALL PRNSTR
+        CALL IPUTS
+		DB '1. CP/M (CF card)'
+		DB 00H
         CALL NEWLINE
-        LXI D, BOOTTBSTR
-        MVI B, 19
-        CALL PRNSTR
+        CALL IPUTS
+		DB '2. Tiny Basic (ROM)'
+		DB 00H
         CALL NEWLINE
         ; We need interrupts for keyboard and timer support
         EI
@@ -1805,13 +1805,6 @@ INPIO_ROM
 MSG1:   DB   'TINY '
         DB   'BASIC'
         DB   CR
-CFMSG1: DB	 'CF CARD: '
-		DB	 CR
-MISSINGSTR:
-		DB	 'missing'
-		DB	 CR
-PARTMS: DB	 'Partition table'
-		DB	 CR
 CFERRM: DB   'CF ERROR: '
         DB   CR
 STARTADDRSTR:
@@ -1820,26 +1813,6 @@ STARTADDRSTR:
 SIZESTR:
 		DB	 'Size: '
 		DB	 CR
-BOOTMODESTR:
-		DB	 'Choose boot mode:'
-		DB	 CR
-BOOTCFSTR:
-		DB	 '1. CP/M (CF card)'
-		DB	 CR
-BOOTTBSTR:
-		DB	 '2. Tiny Basic (ROM)'
-		DB	 CR
-MBRERRORSTR:
-		DB	 'ERROR: faulty MBR'
-		DB	 CR
-MISSINGPART1ERROR:
-		DB	 'ERROR: partition 1 missing'
-		DB	 CR
-SIZEPART1ERROR:
-		DB	 'ERROR: partition 1 < 16kB'
-		DB	 CR
-KBDMSG: DB   'INITIALIZING KEYBOARD'
-        DB   CR
         
 ;CRTMSG: DB	 'Two roads diverged in a yellow wood, And sorry I could not travel both And be one traveler, long I stood And looked down one as far as I could To where it bent in the undergrowth;'
 ;
@@ -2159,6 +2132,7 @@ TXTEND: DS   0                          ;TEXT SAVE AREA ENDS
 VARBGN: DS   55                         ;VARIABLE @(0)
 BUFFER: DS   64                         ;INPUT BUFFER
 BUFEND: DS   1
+SYSTEM_VARIABLES:
 CFLBA3	DS	 1
 CFLBA2	DS	 1
 CFLBA1	DS	 1
