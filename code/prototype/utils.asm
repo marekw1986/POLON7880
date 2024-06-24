@@ -160,6 +160,38 @@ ISZERO32BIT:
 		LDAX D
 		CPI 00H
 		RET
+		
+; CRC-16/ARC for 8080/Z80
+; On entry HL = old CRC, A = byte
+; On exit HL = new CRC, A,B undefined
+CRC16_ARC_F:
+        XRA     L
+        MOV     L,A
+        RRC
+        RRC
+        JPO     BLUR
+        ANA     A
+BLUR:   JPE     BLUR1
+        STC
+BLUR1:  RAR
+        ANI     0E0H
+        RAL
+        MOV     B,A
+        RAL
+        XRA     B
+        XRA     H
+        MOV     B,A
+        XRA     H
+        RAR
+        MOV     A,L
+        RAR
+        MOV     L,A
+        ANA     A
+        RAR
+        XRA     L
+        MOV     L,B
+        MOV     H,A
+        RET
 
 ;THIS IS JUSY ENDLESS LOOP. Go here if something is wrong.		
 ENDLESS_LOOP:
