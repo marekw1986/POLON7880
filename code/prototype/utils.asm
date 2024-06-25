@@ -11,6 +11,21 @@ OUT_CHAR:
 		POP B
 		POP PSW
 		RET
+		
+OUT_CHAR_RS232:
+		PUSH PSW
+OC_RS232_WAIT:    
+		IN   UART_8251_CTRL             ;COME HERE TO DO OUTPUT
+        ANI  TxRDY_MASK                 ;STATUS BIT
+        JZ   OC_RS232_WAIT              ;NOT READY, WAIT
+        POP  PSW                        ;READY, GET OLD A BACK
+        OUT  UART_8251_DATA             ;AND SEND IT OUT
+        CPI  CR                         ;WAS IT CR?
+        RNZ                             ;NO, FINISHED
+        MVI  A,LF                       ;YES, WE SEND LF TOO
+        CALL OUTC                       ;THIS IS RECURSIVE
+        MVI  A,CR                       ;GET CR BACK IN A
+		RET
     
 DELAY:
         MVI B, 255
