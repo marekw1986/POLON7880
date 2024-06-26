@@ -156,6 +156,30 @@ PUTS_LOOP:
 		CALL OUT_CHAR
 		INX H
 		JMP PUTS_LOOP
+		
+IPUTS_RS232:
+		XTHL
+		CALL PUTS_RS232_LOOP
+		INX H
+		XTHL
+		RET
+		
+PUTS_RS232:
+		PUSH H
+		PUSH D
+		CALL PUTS_RS232_LOOP
+		POP D
+		POP H
+		RET
+PUTS_RS232_LOOP:
+		MOV D, H
+		MOV E, L
+		LDAX D
+		CPI 00H
+		RZ					; If a is zero, return
+		CALL OUT_CHAR_RS232
+		INX H
+		JMP PUTS_RS232_LOOP
 
 
 ; Checks if 32 variable pointed by DL is zero		
