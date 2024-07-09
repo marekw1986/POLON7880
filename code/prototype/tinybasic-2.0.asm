@@ -2017,30 +2017,30 @@ KBD_ISR_RET:
 		RET								;Return to interrupted program
 
 TIMER_ISR:
-		PUSH PSW						;Save condition bits and accumulator
         PUSH H
         LHLD SYSTICK                    ;Load SYSTICK variable to HL
         INX H                           ;Increment HL
         SHLD SYSTICK                    ;Save HL in SYSTICK variable
+        POP H        
+        PUSH PSW						;Save condition bits and accumulator
  	 	MVI  A, 00H                     ;Reload. LSB, interrupt every 20ms
   		OUT  COUNT_REG_1_8253
   		MVI  A, 0A0H                    ;Reload. MSB, interrupt every 20ms (0xF0 for 30 ms)
   		OUT  COUNT_REG_1_8253                
-        POP H        
 		POP PSW							;Restore machine status
         EI                              ;Re-enable interrupts
 		RET								;Return to interrupted program
 		
 RTC_ISR:
 		PUSH PSW						;Save condition bits and accumulator
-        PUSH H
         MVI A, 00H                      ;Clear the RTC interrupt flag to change state of the line
         OUT RTC_CTRLD_REG
+		POP PSW							;Restore condition bits and accumulator
+        PUSH H
         LHLD RTCTICK                    ;Load SYSTICK variable to HL
         INX H                           ;Increment HL
         SHLD RTCTICK                    ;Save HL in SYSTICK variable        
         POP H        
-		POP PSW							;Restore machine status
         EI                              ;Re-enable interrupts
 		RET								;Return to interrupted program
 		
