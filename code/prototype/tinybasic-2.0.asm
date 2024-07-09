@@ -1997,37 +1997,21 @@ EX5:    MOV  A,M                        ;LOAD HL WITH THE JUMP
 
 ;Interrupt routines
 UART_RX_ISR:
-		PUSH PSW						;Save condition bits and accumulator
-        PUSH H
-        PUSH D
-        POP D
-        POP H        
-		POP PSW							;Restore machine status
         EI                              ;Re-enable interrupts
 		RET								;Return to interrupted program
 
 UART_TX_ISR:
-		PUSH PSW						;Save condition bits and accumulator
-        PUSH H
-        PUSH D
-        POP D
-        POP H        
-		POP PSW							;Restore machine status
         EI                              ;Re-enable interrupts
 		RET								;Return to interrupted program
 
 KBD_ISR:
 		PUSH PSW						;Save condition bits and accumulator
-        PUSH H
-        PUSH D
         ;IN KBD_STATUS                  ;NO NEED TO TEST, INTERRUPT MODE!
         ;ANI 01H                         ;Check if output buffer full
         ;JZ KBD_ISR_RET                  ;Output buffer empty, end ISR
         IN KBD_DATA                     ;Get keyboard data
         STA KBDDATA                     ;Save received code
-KBD_ISR_RET:        
-        POP D
-        POP H        
+KBD_ISR_RET:               
 		POP PSW							;Restore machine status
         EI                              ;Re-enable interrupts
 		RET								;Return to interrupted program
@@ -2035,7 +2019,6 @@ KBD_ISR_RET:
 TIMER_ISR:
 		PUSH PSW						;Save condition bits and accumulator
         PUSH H
-        PUSH D
         LHLD SYSTICK                    ;Load SYSTICK variable to HL
         INX H                           ;Increment HL
         SHLD SYSTICK                    ;Save HL in SYSTICK variable
@@ -2043,7 +2026,6 @@ TIMER_ISR:
   		OUT  COUNT_REG_1_8253
   		MVI  A, 0A0H                    ;Reload. MSB, interrupt every 20ms (0xF0 for 30 ms)
   		OUT  COUNT_REG_1_8253                
-        POP D
         POP H        
 		POP PSW							;Restore machine status
         EI                              ;Re-enable interrupts
@@ -2052,25 +2034,17 @@ TIMER_ISR:
 RTC_ISR:
 		PUSH PSW						;Save condition bits and accumulator
         PUSH H
-        PUSH D
         MVI A, 00H                      ;Clear the RTC interrupt flag to change state of the line
         OUT RTC_CTRLD_REG
         LHLD RTCTICK                    ;Load SYSTICK variable to HL
         INX H                           ;Increment HL
         SHLD RTCTICK                    ;Save HL in SYSTICK variable        
-        POP D
         POP H        
 		POP PSW							;Restore machine status
         EI                              ;Re-enable interrupts
 		RET								;Return to interrupted program
 		
 VDP_ISR:
-		PUSH PSW						;Save condition bits and accumulator
-        PUSH H
-        PUSH D
-        POP D
-        POP H        
-		POP PSW							;Restore machine status
         EI                              ;Re-enable interrupts
 		RET								;Return to interrupted program		
 
