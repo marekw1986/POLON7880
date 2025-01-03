@@ -1813,8 +1813,6 @@ STARTADDRSTR:
 SIZESTR:
 		DB	 'Size: '
 		DB	 CR
-        
-;CRTMSG: DB	 'Two roads diverged in a yellow wood, And sorry I could not travel both And be one traveler, long I stood And looked down one as far as I could To where it bent in the undergrowth;'
 ;
 ;*************************************************************
 ;
@@ -2049,8 +2047,8 @@ VDP_ISR:
 		RET								;Return to interrupted program		
 
 ;Interrupt vectors
-IR0_VECT:
 		ORG  0FFE0H
+IR0_VECT:
         EI	
         RET
         NOP
