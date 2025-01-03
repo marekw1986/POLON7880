@@ -29,7 +29,7 @@
         ORG  0C000H
         JMP  SET_PC
 SET_PC:
-		MVI  A, 04H 
+		MVI  A, 04H
         OUT  PORT_8212
 START:  LXI  H,STACK                   ;*** COLD START ***
 		SPHL
@@ -38,7 +38,7 @@ START:  LXI  H,STACK                   ;*** COLD START ***
 ;
 
 		INCL "cf.asm"
-		INCL "keyboard.asm"
+		;INCL "keyboard.asm"
 		INCL "utils.asm"
 		INCL "hexdump.asm"
 
@@ -1528,11 +1528,19 @@ INIT:   STA  OCSW
 		MVI  A, 0DH                     ;LSB
 		OUT  COUNT_REG_2_8253
 		MVI  A, 00H                     ;MSB
-		OUT  COUNT_REG_2_8253     
+		OUT  COUNT_REG_2_8253          
         ;Initialize 8251
-        MVI	 A, 4EH
+        MVI  A, 00H
+        OUT  UART_8251_CTRL
+        MVI  A, 00H
+        OUT  UART_8251_CTRL
+        MVI  A, 00H
+        OUT  UART_8251_CTRL
+        MVI  A, 40H						;Initiate UART reset
+        OUT  UART_8251_CTRL
+        MVI	 A, 4EH						;Mode: 8 data, 1 stop, x16
         OUT	 UART_8251_CTRL
-        MVI	 A, 27H
+        MVI	 A, 37H
         OUT	 UART_8251_CTRL
         ;Initialize 8259
         MVI  A, 0FFH					;ICW1 - LSB of IR0_VECT = 0xE0, level triggered, 4 byte intervals, one 8259, ICW4 needed
@@ -1567,28 +1575,122 @@ INIT:   STA  OCSW
         LXI  D, INPIO_ROM               ;SOURCE
         LXI  H, INPIO                   ;DESTINATION
         CALL MEMCOPY
-		
-        ;CALL CFINIT
-        ;CALL CFRSECT
-        ;CALL CFINFO
         
-
-;       Initialize keyboard
-        LXI D, KBDMSG                       ;Print KBD Init message
-        CALL PRTSTG
-        CALL KBDINIT                        ;Call init routine
-        MOV L, B                            ;Check and print result code
-        MVI H, 00H
-        MVI C, 02H
-        CALL PRTNUM
-        CALL CRLF
-        MVI A, 0D1H
-        OUT KBD_CMD
-        CALL KBDWAITINBUF
-        MVI A, 0FFH
-        OUT KBD_DATA
+		CALL IPUTS
+		DB 'CF CARD: '
+		DB 00H
+		CALL CFINIT
+		CPI 00H								; Check if CF_WAIT during initialization timeouted
+		JZ GET_CFINFO
+		CALL IPUTS
+		DB 'missing'
+		DB 00H
+		CALL NEWLINE
+		JMP BOOT_TINY_BASIC
+GET_CFINFO:
+        CALL CFINFO
+        CALL CFGETMBR
+        ; Check if MBR is proper
+        LXI D, LOAD_BASE+510
+        LDAX D
+        CPI 55H
+        JNZ LOG_FAULTY_MBR
+        INX D
+        LDAX D
+        CPI 0AAH
+        JNZ LOG_FAULTY_MBR
+        JMP LOG_PARTITION_TABLE
+LOG_FAULTY_MBR:
+		CALL IPUTS
+		DB 'ERROR: faulty MBR'
+		DB 00H
+		CALL NEWLINE
+        JMP BOOT_TINY_BASIC
+LOG_PARTITION_TABLE:
+		CALL IPUTS
+		DB 'Partition table'
+		DB 00H
+        CALL NEWLINE
+        CALL PRN_PARTITION_TABLE
+        CALL NEWLINE
+        ; Check if partition 1 is present
+        LXI D, LOAD_BASE+446+8		; Address of first partition
+        CALL ISZERO32BIT
+        JNZ CHECK_PARTITION1_SIZE
+        CALL IPUTS
+		DB 'ERROR: partition 1 missing'
+		DB 00H
+        CALL NEWLINE
+        JMP BOOT_TINY_BASIC
+CHECK_PARTITION1_SIZE:
+		; Check if partition 1 is larger than 16kB (32 sectors)
+		LXI D, LOAD_BASE+446+12		; First partition size
+		LDAX D
+		CPI 32						; Check least significant byte
+		JZ PRINT_BOOT_OPTIONS		; It is equal. Good enough.
+		JNC PRINT_BOOT_OPTIONS		; It is bigger
+		INX D
+		LDAX D
+		CPI 00H
+		JNZ PRINT_BOOT_OPTIONS
+		INX D
+		LDAX D
+		CPI 00H
+		JNZ PRINT_BOOT_OPTIONS
+		INX D
+		LDAX D
+		CPI 00H
+		JNZ PRINT_BOOT_OPTIONS
+		CALL IPUTS
+		DB 'ERROR: partition 1 < 16kB'
+		DB 00H
+		CALL NEWLINE
+		JMP BOOT_TINY_BASIC
+PRINT_BOOT_OPTIONS:
+        ; Print boot options
+        CALL IPUTS
+		DB 'Choose boot mode:'
+		DB 00H
+        CALL NEWLINE
+        CALL IPUTS
+		DB '1. CP/M (CF card)'
+		DB 00H
+        CALL NEWLINE
+        CALL IPUTS
+		DB '2. Tiny Basic (ROM)'
+		DB 00H
+        CALL NEWLINE
+        ; We need interrupts for keyboard and timer support
+        EI
+		; Wait for user input
+BOOT_MODE_INPUT:
+;		PUSH B
+;		PUSH D
+;		PUSH H
+;		CALL KBD2ASCII
+;		POP H
+;		POP D
+;		POP B
+		CALL CHKIO
+		CPI  00H
+		JZ BOOT_MODE_INPUT
+        ANI  7FH  		; MASK BIT 7 OFF
+        CPI 49			; Is it 1?
+        JZ BOOT_CPM		; It is, boot CPM
+        CPI 50			; Is it 2?
+        JZ BOOT_TINY_BASIC	; It is, boot Tiny Basic
+        JMP BOOT_MODE_INPUT
+        
+BOOT_CPM:
+		DI
+        CALL LOAD_PARTITION1
+        CALL NEWLINE
+        JMP LOAD_BASE
+        
+BOOT_TINY_BASIC:
         ;Enable interrupts
         EI
+        MVI D, 2	; JUST TEMP FOR EASIER DEBUGGING, RESTORE 28H LATER
         
 PATLOP:
         CALL CRLF
@@ -1617,20 +1719,21 @@ OC3:    IN   UART_8251_CTRL             ;COME HERE TO DO OUTPUT
         MVI  A,CR                       ;GET CR BACK IN A
         RET
 ;
-;CHKIO:  IN   UART_8251_CTRL             ;*** CHKIO ***
-;        NOP                             ;STATUS BIT FLIPPED?
-;        ANI  RxRDY_MASK                 ;MASK STATUS BIT
-;        RZ                              ;NOT READY, RETURN "Z"
-;        IN   UART_8251_DATA             ;READY, READ DATA
-CHKIO:	PUSH B
-		PUSH D
-		PUSH H
-		CALL KBD2ASCII
-		POP H
-		POP D
-		POP B
-		CPI  00H
-		RZ
+CHKIO:  IN   UART_8251_CTRL             ;*** CHKIO ***
+        NOP                             ;STATUS BIT FLIPPED?
+        ANI  RxRDY_MASK                 ;MASK STATUS BIT
+        RZ                              ;NOT READY, RETURN "Z"
+        IN   UART_8251_DATA             ;READY, READ DATA
+
+;CHKIO:	PUSH B
+;		PUSH D
+;		PUSH H
+;		CALL KBD2ASCII
+;		POP H
+;		POP D
+;		POP B
+;		CPI  00H
+;		RZ
 		;
         ANI  7FH                        ;MASK BIT 7 OFF
         CPI  0FH                        ;IS IT CONTROL-O?
@@ -1945,8 +2048,8 @@ RTC_ISR:
 		RET								;Return to interrupted program
 
 ;Interrupt vectors
-IR0_VECT:
 		ORG  0FFE0H
+IR0_VECT:
 		JMP KBD_ISR
         NOP
         ;EI
@@ -1991,7 +2094,8 @@ IR7_VECT
 ;
 LSTROM:                                 ;ALL ABOVE CAN BE ROM
 ;       ORG  1000H                      ;HERE DOWN MUST BE RAM
-        ORG  0100H
+;       ORG  0100H
+		ORG  0200H
 OCSW    DB   0FFH      					;SWITCH FOR OUTPUT
 OUTIO:  DS   3
 WAITIO: DS   10
@@ -2009,11 +2113,13 @@ RANPNT: DS   2                          ;RANDOM NUMBER POINTER
 TXTUNF: DS   2                          ;->UNFILLED TEXT AREA
 TXTBGN: DS   2                          ;TEXT SAVE AREA BEGINS
 ;       ORG  1366H
-        ORG  1F00H
+;       ORG  1F00H
+		ORG	 4400H
 TXTEND: DS   0                          ;TEXT SAVE AREA ENDS
 VARBGN: DS   55                         ;VARIABLE @(0)
 BUFFER: DS   64                         ;INPUT BUFFER
 BUFEND: DS   1
+SYSTEM_VARIABLES:
 CFLBA3	DS	 1
 CFLBA2	DS	 1
 CFLBA1	DS	 1
