@@ -30,7 +30,7 @@ CFWAIT:
         RET
         
 CFWAIT_TMOUT:
-		MVI C, 32
+		MVI C, 128
 CFWAIT_TMOUT_LOOP_EXT:
 		MVI B, 255
 CFWAIT_TMOUT_LOOP_INT:
@@ -53,14 +53,10 @@ CFCHERR:
         IN CFREG7
         ANI	01H		                    ;MASK OUT ERROR BIT
         JZ	CFNERR
-        LXI D, CFERRM
-        CALL PRTSTG
         IN	CFREG1
-        MOV L, A
-        MVI H, 0H
-        MVI C, 4H
-        CALL PRTNUM
-CFNERR:	
+		RET
+CFNERR:
+		MVI A, 00H
         RET    
             
 CFREAD:
@@ -133,7 +129,10 @@ CFINFO:
         CALL PRNSTR
         CALL NEWLINE
         RET        
-        
+
+; Reads single sector
+; Source in CFLBAx variables
+; Destination address in DE        
 CFRSECT:
 		CALL CFSLBA						;SET LBA
 		MVI A, 01H
@@ -141,7 +140,7 @@ CFRSECT:
 		CALL CFWAIT
 		MVI A, 20H						;READ SECTOR COMMAND
 		OUT	CFREG7
-		LXI	D, LOAD_BASE
+		;LXI	D, LOAD_BASE
 		CALL CFREAD
 		CALL CFCHERR
 		RET
