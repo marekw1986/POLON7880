@@ -1576,6 +1576,16 @@ INIT:   STA  OCSW
         LXI  H, INPIO                   ;DESTINATION
         CALL MEMCOPY
         
+        ; Wait before initializing CF card
+		MVI C, 255
+		CALL DELAY
+        MVI C, 255
+		CALL DELAY
+		MVI C, 255
+		CALL DELAY
+		MVI C, 255
+		CALL DELAY
+        
 		CALL IPUTS
 		DB 'CF CARD: '
 		DB 00H
