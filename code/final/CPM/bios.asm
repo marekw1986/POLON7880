@@ -1,6 +1,6 @@
 		include "labels.asm"
 ;STACK 	EQU 7FFFH
-CCP		EQU	2200H
+CCP		EQU	5C00H   ; was 2200H
 BDOS	EQU CCP+806H
 BIOS	EQU CCP+1600H
 CDISK	EQU	0004H
@@ -19,7 +19,7 @@ DEBUG	EQU 0
 ;*
 ;**************************************************************
 		
-		org 3800H
+		org 7200H   ; was 3800H
 	IF $ != CCP+1600H
 		error "BIOS begins at wrong address!"
 	ENDIF	
@@ -842,7 +842,7 @@ DISKA_DPB:
 				DB	0FFH		; AL0
 				DB	00H			; AL1
 				DW	0000H		; CKS
-				DW	0020H		; OFF
+				DW	003FH		; OFF
 				
 DISKA_ALV:
 				DS	(4065/8)+1
