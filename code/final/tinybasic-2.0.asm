@@ -29,7 +29,7 @@
         ORG  0C000H
         JMP  SET_PC
 SET_PC:
-		MVI  A, 04H
+		MVI  A, 085H
         OUT  PORT_8212
 START:  LXI  H,STACK                   ;*** COLD START ***
 		SPHL
@@ -1772,13 +1772,6 @@ INPIO_ROM
 MSG1:   DB   'TINY '
         DB   'BASIC'
         DB   CR
-CFMSG1: DB	 'CF CARD: '
-		DB	 CR
-MISSINGSTR:
-		DB	 'missing'
-		DB	 CR
-PARTMS: DB	 'Partition table'
-		DB	 CR
 CFERRM: DB   'CF ERROR: '
         DB   CR
 STARTADDRSTR:
@@ -1787,26 +1780,6 @@ STARTADDRSTR:
 SIZESTR:
 		DB	 'Size: '
 		DB	 CR
-BOOTMODESTR:
-		DB	 'Choose boot mode:'
-		DB	 CR
-BOOTCFSTR:
-		DB	 '1. CP/M (CF card)'
-		DB	 CR
-BOOTTBSTR:
-		DB	 '2. Tiny Basic (ROM)'
-		DB	 CR
-MBRERRORSTR:
-		DB	 'ERROR: faulty MBR'
-		DB	 CR
-MISSINGPART1ERROR:
-		DB	 'ERROR: partition 1 missing'
-		DB	 CR
-SIZEPART1ERROR:
-		DB	 'ERROR: partition 1 < 16kB'
-		DB	 CR
-KBDMSG: DB   'INITIALIZING KEYBOARD'
-        DB   CR
 
 ;
 ;*************************************************************
