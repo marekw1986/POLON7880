@@ -2097,16 +2097,18 @@ TXTUNF: DS   2                          ;->UNFILLED TEXT AREA
 TXTBGN: DS   2                          ;TEXT SAVE AREA BEGINS
 ;       ORG  1366H
 ;       ORG  1F00H
-		ORG	 7DFFH
+		ORG	 0BBFFH
 TXTEND: DS   0                          ;TEXT SAVE AREA ENDS
 VARBGN: DS   55                         ;VARIABLE @(0)
 BUFFER: DS   64                         ;INPUT BUFFER
 BUFEND: DS   1
 SYSTEM_VARIABLES:
+BLKDAT: DS   512                        ;BUFFER FOR SECTOR TRANSFER
+BLKENDL DS   0                          ;BUFFER ENDS
 CFLBA3	DS	 1
 CFLBA2	DS	 1
 CFLBA1	DS	 1
-CFLBA0	DS	 1                          ;BUFFER ENDS
+CFLBA0	DS	 1                          
 SYSTICK DS   2                          ;Systick timer
 RTCTICK DS   2							;RTC tick timer/uptime
 KBDDATA DS   1                          ;Keyboard last received code
@@ -2115,15 +2117,11 @@ KBDSFFL DS	 1							;Keyboard Shift flag
 KBDOLD	DS	 1							;Keyboard old data
 KBDNEW	DS	 1							;Keyboard new data
 STKLMT: DS   1                          ;TOP LIMIT FOR STACK
+
 ;       ORG  1400H
-        ORG  7FFFH
+        ORG  0BFFFH
 STACK:  DS   0                          ;STACK STARTS HERE
 ;
-
-; This is stored in banked RAM!
-        ORG 8000H
-BLKDAT: DS   512                        ;BUFFER FOR SECTOR TRANSFER
-BLKENDL DS   0                          ;BUFFER ENDS
 
 CR      EQU  0DH
 LF      EQU  0AH
