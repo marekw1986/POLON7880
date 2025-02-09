@@ -14,26 +14,14 @@ poloncpm.img : cpm22.bin
 boot.p boot.lst: boot.asm
 	asl -o boot.p -L -OLIST boot.lst boot.asm -cpu 8080
 	
-#boot.bin: boot.p
-#	p2bin -l '$$00' -r '$$0000-$$21ff' boot.p
-	
 ccp.p ccp.lst: ccp.asm
 	asl -D origin=5c00h -o ccp.p -L -OLIST ccp.lst ccp.asm -cpu 8080
 
-#ccp.bin: ccp.p
-#	p2bin -l '$$00' -r '$$2200-$$29ff' ccp.p
-
 bdos.p bdos.lst: bdos.asm
-	asl -D origin=6400h -o bdos.p -L -OLIST bdos.lst bdos.asm -cpu 8080
-
-#bdos.bin: bdos.p
-#	p2bin -l '$$00' -r '$$2a00-$$37ff' bdos.p
+	asl -D origin=6406h -o bdos.p -L -OLIST bdos.lst bdos.asm -cpu 8080
 	
 bios.p bios.lst: bios.asm
 	asl -o bios.p -L -OLIST bios.lst bios.asm -cpu 8080
-	
-#bios.bin: bios.p
-#	p2bin -l '$$00' bios.p
 
 cpm22.bin: boot.p ccp.p bdos.p bios.p
 	p2bin -l '$$00' boot.p ccp.p bdos.p bios.p cpm22.bin
