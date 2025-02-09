@@ -15,10 +15,10 @@ boot.p boot.lst: boot.asm
 	asl -o boot.p -L -OLIST boot.lst boot.asm -cpu 8080
 	
 ccp.p ccp.lst: ccp.asm
-	asl -D origin=5c00h -o ccp.p -L -OLIST ccp.lst ccp.asm -cpu 8080
+	asl -D origin=9c00h -o ccp.p -L -OLIST ccp.lst ccp.asm -cpu 8080
 
 bdos.p bdos.lst: bdos.asm
-	asl -D origin=6406h -o bdos.p -L -OLIST bdos.lst bdos.asm -cpu 8080
+	asl -D origin=0a406h -o bdos.p -L -OLIST bdos.lst bdos.asm -cpu 8080
 	
 bios.p bios.lst: bios.asm
 	asl -o bios.p -L -OLIST bios.lst bios.asm -cpu 8080
