@@ -2114,8 +2114,6 @@ KBDKRFL DS	 1							;Keyboard key release flag
 KBDSFFL DS	 1							;Keyboard Shift flag
 KBDOLD	DS	 1							;Keyboard old data
 KBDNEW	DS	 1							;Keyboard new data
-CURX    DS   1                          ;VDP cursor x position
-CURY    DS   1                          ;VDP cursor y position
 STKLMT: DS   1                          ;TOP LIMIT FOR STACK
 ;       ORG  1400H
         ORG  7FFFH
