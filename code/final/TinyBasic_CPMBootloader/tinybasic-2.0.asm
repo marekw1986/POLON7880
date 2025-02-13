@@ -24,7 +24,7 @@
 ; SECTION.  THEY CAN BE REACHED ONLY BY 3-BYTE CALLS.
 ;
 
-		INCL "definitions.asm"
+		INCL "../common/definitions.asm"
 
         ORG  0C000H
         JMP  SET_PC
@@ -37,10 +37,10 @@ START:  LXI  H,STACK                   ;*** COLD START ***
         JMP  INIT
 ;
 
-		INCL "cf.asm"
-		;INCL "keyboard.asm"
-		INCL "utils.asm"
-		INCL "hexdump.asm"
+		INCL "../common/cf.asm"
+		INCL "keyboard.asm"
+		INCL "../common/utils.asm"
+		INCL "../common/hexdump.asm"
 
 TSTC:   XTHL                            ;*** TSTC OR RST 1 ***
         CALL IGNBLK                    ;IGNORE BLANKS AND
@@ -1549,19 +1549,19 @@ INIT:   STA  OCSW
         OUT	 PIC_8259_HIGH				;ICW2 is written to the high port of 8259
         MVI  A, 02H						;ICW4 - NOT special full nested mode, not buffored, master, automatic EOI, 8080 processor
         OUT  PIC_8259_HIGH				;ICW4 is written to the high port of 8259        
-        MVI  A, 0E6H					;OCW1 TIMER disabled, RTC acrive, KBD disabled
+        MVI  A, 0EFH					;OCW1 active TIMER; RTC, KBD and UART interrupts disabled
         OUT  PIC_8259_HIGH				;OCW1 is written to the high port of 8259
         MVI  A, 80H						;OCW2 - Rotation of priorities, no explicit EOI
         OUT  PIC_8259_LOW				;OCW2 is written to the low port of 8259
 ;        MVI  A, 4BH				    ;OCW3 - ESMM SMM RESET SPECIAL MASK, NO POLL COMMAND, RR_RIS_READ_IS_REG
 ;        OUT  PIC_8259_LOW				;OCW3 is written to the low port of 8259
         ;Initialize M6442B RTC
-        MVI  A, 04H                     ;30 AJD = 0, IRQ FLAG = 1 (required), BUSY = 0(?), HOLD = 0
-        OUT  RTC_CTRLD_REG
-        MVI  A, 06H                     ;Innterrupt mode, STD.P enabled, 1 s.
-        OUT  RTC_CTRLE_REG
-        MVI  A, 04H                     ;TEST = 0, 24h mode, STOP = 0, RESET = 0
-        OUT  RTC_CTRLF_REG
+;        MVI  A, 04H                     ;30 AJD = 0, IRQ FLAG = 1 (required), BUSY = 0(?), HOLD = 0
+;        OUT  RTC_CTRLD_REG
+;        MVI  A, 06H                     ;Innterrupt mode, STD.P enabled, 1 s.
+;        OUT  RTC_CTRLE_REG
+;        MVI  A, 04H                     ;TEST = 0, 24h mode, STOP = 0, RESET = 0
+;        OUT  RTC_CTRLF_REG
         		
         LXI  B, 3                       ;BYTES TO TRANSFER
         LXI  D, OUTIO_ROM               ;SOURCE
@@ -1575,7 +1575,7 @@ INIT:   STA  OCSW
         LXI  D, INPIO_ROM               ;SOURCE
         LXI  H, INPIO                   ;DESTINATION
         CALL MEMCOPY
-        
+
         ; Wait before initializing CF card
 		MVI C, 255
 		CALL DELAY
@@ -1599,7 +1599,25 @@ INIT:   STA  OCSW
 		JMP BOOT_TINY_BASIC
 GET_CFINFO:
         CALL CFINFO
+        CALL IPUTS
+        DB 'Received MBR: '
+        DB 00H
         CALL CFGETMBR
+        ; HEXDUMP MBR - START
+        ;LXI D, LOAD_BASE
+        ;MVI B, 128
+        ;CALL HEXDUMP
+        ;LXI D, LOAD_BASE+128
+        ;MVI B, 128
+        ;CALL HEXDUMP
+        ;LXI D, LOAD_BASE+256
+        ;MVI B, 128
+        ;CALL HEXDUMP
+        ;LXI D, LOAD_BASE+384
+        ;MVI B, 128
+        ;CALL HEXDUMP
+        ;CALL NEWLINE
+        ; HEXDUMP MBR - END
         ; Check if MBR is proper
         LXI D, LOAD_BASE+510
         LDAX D
@@ -1695,12 +1713,12 @@ BOOT_CPM:
 		DI
         CALL LOAD_PARTITION1
         CALL NEWLINE
-        JMP LOAD_BASE
+        JMP BIOS_ADDRESS
         
 BOOT_TINY_BASIC:
+		MVI D, 02H
         ;Enable interrupts
         EI
-        MVI D, 2	; JUST TEMP FOR EASIER DEBUGGING, RESTORE 28H LATER
         
 PATLOP:
         CALL CRLF

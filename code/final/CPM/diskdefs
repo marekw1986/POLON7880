@@ -5,6 +5,6 @@ diskdef polon-2k-8m
 	blocksize 2048
 	maxdir 512
 	skew 1
-	boottrk 95
+	boottrk 17
 	os 2.2
 end

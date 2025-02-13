@@ -30,7 +30,7 @@ CFWAIT:
         RET
         
 CFWAIT_TMOUT:
-		MVI C, 128
+		MVI C, 64
 CFWAIT_TMOUT_LOOP_EXT:
 		MVI B, 255
 CFWAIT_TMOUT_LOOP_INT:
@@ -257,7 +257,7 @@ LOAD_PARTITION1:
 		ORI 0E0H						;MODE LBA, MASTER DEV
 		OUT CFREG6						;LBA 3
 		; MVI A, 01H					;READ ONE SECTOR
-		MVI A, 95						;READ 95 SECTORS (48kB-512 bytes to preserve stack)
+		MVI A, 17						;READ 95 SECTORS (9kB-512 bytes to preserve stack)
 		OUT	CFREG2						
 		CALL CFWAIT
 		MVI A, 20H						;READ SECTOR COMMAND

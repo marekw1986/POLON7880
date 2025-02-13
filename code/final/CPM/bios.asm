@@ -633,85 +633,85 @@ BIOS_SECTRN_PROC:
 ;0x05 - KBD DATA stuck high
 ;0x06 - Interface didn't pass the test
 ;0x07 - Keyboard reset failure/no keyboard present        
-;BIOS_KBDINIT:
-;        ;1. Disable devices
-;        CALL KBDWAITINBUF           ;Send 0xAD command to the PS/2 controller
-;        MVI A, 0ADH
-;        OUT KBD_CMD
-;        ;2. Flush The Output Buffer
-;        IN KBD_STATUS
-;        ANI 01H                     ;Check if there is data to flush
-;        JZ BIOS_KBDCRTLSET              	;No? Next step then
-;        IN KBD_DATA                 ;Yes? Get the data byte        
-;BIOS_KBDCRTLSET:
-;        ;3. Set the Controller Configuration Byte (temp)
-;        CALL KBDWAITINBUF			;Send 0x60 command to the PS/2 controller
-;        MVI A, 60H
-;        OUT KBD_CMD
-;        CALL KBDWAITINBUF			;Send actual configuration byte
-;        MVI A, 08H					;Interrupts disabled, system flag set, first port clock enabled
-;		OUT KBD_DATA				;second port clock disabled, first port translation disabled
-;        ;4. Controller self test
-;		CALL KBDWAITINBUF
-;        MVI A, 0AAH                 ;Send 0xAA command to the PS/2 controller
-;        OUT KBD_CMD
-;		CALL KBDWAITOUTBUF          ;Wait for response
-;        IN KBD_DATA                 ;Get byte
-;        CPI 55H                     ;Is it 0x55?
-;        MVI B, 01H					;Return result code if not
-;        RNZ                          ;No? Return then
-;        ;5. Interface test
-;		CALL KBDWAITINBUF
-;        MVI A, 0ABH                 ;Send 0xAB command
-;        OUT KBD_CMD
-;		CALL KBDWAITOUTBUF          ;Wait for response
-;        IN KBD_DATA                 ;Get byte
-;        CPI 01H                     ;Check if it is CLK stuck low error
-;        MVI B, 02H                  ;Return result code if it is
-;        RZ                         
-;        CPI 02H                     ;Check if it is CLK stuck high error
-;        MVI B, 03H                  ;Return result code if it is
-;        RZ                         
-;        CPI 03H                     ;Check if it is KBD DATA stuck low error
-;        MVI B, 04H                  ;Return result code if it is
-;        RZ
-;        CPI 04H                     ;Check if it is KBD DATA stuck high error
-;        MVI B, 05H                  ;Return result code if it is
-;        RZ                         
-;        CPI 00H                     ;Is it 0x00? Did it pass the test?
-;        MVI B, 06H					;Return result code if not
-;        RNZ                          ;No? Return then
-;        ;6. Enable Devices
-;        CALL KBDWAITINBUF
-;        MVI A, 0AEH                 ;Send 0xAE command
-;        OUT KBD_CMD
-;        ;7. Reset Device
-;        CALL KBDWAITINBUF           ;Wait untill ready to send
-;        MVI A, 0FFH                 ;Send 0xFF to device
-;        OUT KBD_DATA                ;Send it to device, not the controller
-;        MVI C, 130                  ;Setup DELAY routine
-;        CALL DELAY                  ;This is required to avoid freeze
-;        CALL KBDWAITOUTBUF          ;Wait for response
-;        IN KBD_DATA                 ;Get byte
-;        CPI 0FAH                    ;Is it 0xFA? 0xFC means failure. No response means no device present.
-;        MVI B, 07H					;Return result code if not
-;        RNZ                          ;No? Return then
-;        ;8. Set the Controller Configuration Byte (final)
-;        CALL KBDWAITINBUF			;Send 0x60 command to the PS/2 controller
-;        MVI A, 60H
-;        OUT KBD_CMD
-;        CALL KBDWAITINBUF			;Send actual configuration byte
-;        MVI A, 08H					;Interrupts disabled, system flag set, first port clock enabled
-;		OUT KBD_DATA				;second port clock disabled, first port translation disabled
-;        ;9. Zero out buffer        
-;        MVI A, 00H                  
-;        STA KBDDATA					;Zero KBDDATA
-;        STA KBDKRFL					;Zero key release flag
-;        STA KBDSFFL					;Zero shift flag
-;        STA KBDOLD					;Zero old data
-;        STA KBDNEW					;Zero new data
-;        MVI B, 00H					;Return result code
-;        RET
+BIOS_KBDINIT:
+        ;1. Disable devices
+        CALL KBDWAITINBUF           ;Send 0xAD command to the PS/2 controller
+        MVI A, 0ADH
+        OUT KBD_CMD
+        ;2. Flush The Output Buffer
+        IN KBD_STATUS
+        ANI 01H                     ;Check if there is data to flush
+        JZ BIOS_KBDCRTLSET              	;No? Next step then
+        IN KBD_DATA                 ;Yes? Get the data byte        
+BIOS_KBDCRTLSET:
+        ;3. Set the Controller Configuration Byte (temp)
+        CALL KBDWAITINBUF			;Send 0x60 command to the PS/2 controller
+        MVI A, 60H
+        OUT KBD_CMD
+        CALL KBDWAITINBUF			;Send actual configuration byte
+        MVI A, 08H					;Interrupts disabled, system flag set, first port clock enabled
+		OUT KBD_DATA				;second port clock disabled, first port translation disabled
+        ;4. Controller self test
+		CALL KBDWAITINBUF
+        MVI A, 0AAH                 ;Send 0xAA command to the PS/2 controller
+        OUT KBD_CMD
+		CALL KBDWAITOUTBUF          ;Wait for response
+        IN KBD_DATA                 ;Get byte
+        CPI 55H                     ;Is it 0x55?
+        MVI B, 01H					;Return result code if not
+        RNZ                          ;No? Return then
+        ;5. Interface test
+		CALL KBDWAITINBUF
+        MVI A, 0ABH                 ;Send 0xAB command
+        OUT KBD_CMD
+		CALL KBDWAITOUTBUF          ;Wait for response
+        IN KBD_DATA                 ;Get byte
+        CPI 01H                     ;Check if it is CLK stuck low error
+        MVI B, 02H                  ;Return result code if it is
+        RZ                         
+        CPI 02H                     ;Check if it is CLK stuck high error
+        MVI B, 03H                  ;Return result code if it is
+        RZ                         
+        CPI 03H                     ;Check if it is KBD DATA stuck low error
+        MVI B, 04H                  ;Return result code if it is
+        RZ
+        CPI 04H                     ;Check if it is KBD DATA stuck high error
+        MVI B, 05H                  ;Return result code if it is
+        RZ                         
+        CPI 00H                     ;Is it 0x00? Did it pass the test?
+        MVI B, 06H					;Return result code if not
+        RNZ                          ;No? Return then
+        ;6. Enable Devices
+        CALL KBDWAITINBUF
+        MVI A, 0AEH                 ;Send 0xAE command
+        OUT KBD_CMD
+        ;7. Reset Device
+        CALL KBDWAITINBUF           ;Wait untill ready to send
+        MVI A, 0FFH                 ;Send 0xFF to device
+        OUT KBD_DATA                ;Send it to device, not the controller
+        MVI C, 130                  ;Setup DELAY routine
+        CALL DELAY                  ;This is required to avoid freeze
+        CALL KBDWAITOUTBUF          ;Wait for response
+        IN KBD_DATA                 ;Get byte
+        CPI 0FAH                    ;Is it 0xFA? 0xFC means failure. No response means no device present.
+        MVI B, 07H					;Return result code if not
+        RNZ                          ;No? Return then
+        ;8. Set the Controller Configuration Byte (final)
+        CALL KBDWAITINBUF			;Send 0x60 command to the PS/2 controller
+        MVI A, 60H
+        OUT KBD_CMD
+        CALL KBDWAITINBUF			;Send actual configuration byte
+        MVI A, 08H					;Interrupts disabled, system flag set, first port clock enabled
+		OUT KBD_DATA				;second port clock disabled, first port translation disabled
+        ;9. Zero out buffer        
+        MVI A, 00H                  
+        STA KBDDATA					;Zero KBDDATA
+        STA KBDKRFL					;Zero key release flag
+        STA KBDSFFL					;Zero shift flag
+        STA KBDOLD					;Zero old data
+        STA KBDNEW					;Zero new data
+        MVI B, 00H					;Return result code
+        RET
 		
 		
 	IF DEBUG > 0
@@ -842,7 +842,7 @@ DISKA_DPB:
 				DB	0FFH		; AL0
 				DB	00H			; AL1
 				DW	0000H		; CKS
-				DW	005FH		; OFF
+				DW	0011H		; OFF
 				
 DISKA_ALV:
 				DS	(4065/8)+1
