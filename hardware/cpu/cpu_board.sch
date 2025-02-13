@@ -18399,7 +18399,11 @@ Based on the following sources:
 <pinref part="IC6" gate="A" pin="B"/>
 <pinref part="GND10" gate="1" pin="GND"/>
 <wire x1="10.16" y1="-147.32" x2="7.62" y2="-147.32" width="0.1524" layer="91"/>
-<wire x1="7.62" y1="-147.32" x2="7.62" y2="-157.48" width="0.1524" layer="91"/>
+<wire x1="7.62" y1="-147.32" x2="7.62" y2="-152.4" width="0.1524" layer="91"/>
+<pinref part="IC6" gate="A" pin="G"/>
+<wire x1="7.62" y1="-152.4" x2="7.62" y2="-157.48" width="0.1524" layer="91"/>
+<wire x1="10.16" y1="-152.4" x2="7.62" y2="-152.4" width="0.1524" layer="91"/>
+<junction x="7.62" y="-152.4"/>
 </segment>
 <segment>
 <pinref part="IC6" gate="B" pin="B"/>
@@ -20142,11 +20146,6 @@ Based on the following sources:
 <label x="114.3" y="-147.32" size="1.4224" layer="95" rot="R180" xref="yes"/>
 <pinref part="IC9" gate="A" pin="G2A"/>
 <wire x1="116.84" y1="-147.32" x2="114.3" y2="-147.32" width="0.1524" layer="91"/>
-</segment>
-<segment>
-<pinref part="IC6" gate="A" pin="G"/>
-<wire x1="10.16" y1="-152.4" x2="2.54" y2="-152.4" width="0.1524" layer="91"/>
-<label x="2.54" y="-152.4" size="1.4224" layer="95" rot="R180" xref="yes"/>
 </segment>
 </net>
 <net name="START_MEM_SWITCH" class="0">
