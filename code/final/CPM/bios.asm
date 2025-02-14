@@ -8,7 +8,7 @@ IOBYTE	EQU 0003H
 
 ; WARNING: The following assumes that CPM_BASE%128 = 0
 WB_NSECTS	EQU		(BIOS_BOOT-CCP)/128					; number of sectors to load
-WB_TRK		EQU		CCP/512								; first track number (rounded down)
+WB_TRK		EQU		0									; first track now at beginning of partition now
 WB_SEC		EQU		(CCP/128)&03H						; first sector number
 
 DEBUG	EQU 0
@@ -45,6 +45,18 @@ BIOS_BOOT_PROC:
 		DI
 		LXI  H, BIOS_STACK
 		SPHL
+        
+        XRA A
+        LXI H, 0000H
+        LXI B, 9C00H
+ZERO_LOOP:
+        MVI A, 00H
+        MOV M, A
+        INX H
+        DCX B
+        MOV A, B
+        ORA C
+        JNZ ZERO_LOOP
 	IF DEBUG > 0
 	    PUSH PSW
         PUSH B
