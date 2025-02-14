@@ -16,6 +16,14 @@ poloncpm.img : cpm22.bin
 
 ccp.p ccp.lst: ccp.asm
 	asl -D origin=9c00h -o ccp.p -L -OLIST ccp.lst ccp.asm -cpu 8080
+	
+ccp.asm bdos.asm:
+	git clone https://github.com/brouhaha/cpm22.git
+	cp ./cpm22/bdos.asm ./
+	cp ./cpm22/ccp.asm ./
+	sed -i '/.cpu	8080/d' ./bdos.asm
+	sed -i '/.cpu	8080/d' ./ccp.asm
+	rm -rf ./cpm22
 
 bdos.p bdos.lst: bdos.asm
 	asl -D origin=0a406h -o bdos.p -L -OLIST bdos.lst bdos.asm -cpu 8080
