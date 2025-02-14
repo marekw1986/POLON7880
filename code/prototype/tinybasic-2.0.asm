@@ -2121,7 +2121,7 @@ KBDNEW	DS	 1							;Keyboard new data
 CURSOR  DS   2                          ;VDP cursor x position
 STKLMT: DS   1                          ;TOP LIMIT FOR STACK
 ;       ORG  1400H
-        ORG  7FFFH
+        ORG  0BFFFH
 STACK:  DS   0                          ;STACK STARTS HERE
 
 
