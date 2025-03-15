@@ -2110,7 +2110,7 @@ TXTUNF: DS   2                          ;->UNFILLED TEXT AREA
 TXTBGN: DS   2                          ;TEXT SAVE AREA BEGINS
 ;       ORG  1366H
 ;       ORG  1F00H
-		ORG	 0BBFFH
+		ORG	 0B9FFH
 TXTEND: DS   0                          ;TEXT SAVE AREA ENDS
 VARBGN: DS   55                         ;VARIABLE @(0)
 BUFFER: DS   64                         ;INPUT BUFFER
@@ -2119,6 +2119,8 @@ SYSTEM_VARIABLES:
 PARTADDR    DS   16                     ;PARTITION ADDR TABLE
 BLKDAT: DS   512                        ;BUFFER FOR SECTOR TRANSFER
 BLKENDL DS   0                          ;BUFFER ENDS
+VDPBUF  DS   512
+VDPBEND DS   0
 CFVAL	DS	 1							;IS VALID CF DATA IN BUFFER
 CFLBA3	DS	 1
 CFLBA2	DS	 1

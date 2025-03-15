@@ -83,23 +83,23 @@ VDPZEROVRAML:
 VDPSCROLLUP:
 		;Mowe 12 lines
 		;Read them first
-        LXI B, BLKDAT
+        LXI B, VDPBUF
         LXI D, 0828H
         LXI H, 01E0H
 		CALL VDPRVRAM
 		;Move lines from buffer to the beginning of the screen
-        LXI B, BLKDAT
+        LXI B, VDPBUF
         LXI D, 0800H
         LXI H, 01E0H
         CALL VDPWVRAM		
         ;Move remaining 11 lines
         ;Read them first
-        LXI B, BLKDAT
+        LXI B, VDPBUF
         LXI D, 0A08H
         LXI H, 01B8H
 		CALL VDPRVRAM
 		;Write those lines to the middle of the screen
-        LXI B, BLKDAT
+        LXI B, VDPBUF
         LXI D, 09E0H
         LXI H, 01B8H
         CALL VDPWVRAM			
