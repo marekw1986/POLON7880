@@ -57,6 +57,15 @@ ZERO_LOOP:
         MOV A, B
         ORA C
         JNZ ZERO_LOOP
+        CALL BIOS_CFGETMBR
+        CPI 00H                     ; Check if MBR loaded properly
+        JZ LD_PART_TABLE
+        CALL IPUTS
+        DB 'MBR load err. Reset required.'
+        DB 00H
+        CALL ENDLESS_LOOP
+LD_PART_TABLE:
+        CALL BIOS_CFLDPARTADDR
 	IF DEBUG > 0
 	    PUSH PSW
         PUSH B
@@ -308,36 +317,15 @@ BIOS_SETTRK_PROC:
 		RET
 		  
 BIOS_SELDSK_PROC:
-		PUSH PSW
 		MOV A, C
-		STA DISK_DISK
-		POP PSW
-		;LXI H, 0
-		LXI H, DISKA_DPH
-	IF DEBUG > 1
-		PUSH H				; Save content  of HL on original stack, then switch to bios stack
-		LXI H, 0000H
-		DAD SP	; HL = HL + SP
-		SHLD ORIGINAL_SP
-		LXI H, BIOS_STACK
-		SPHL	
-        PUSH PSW
-        PUSH B
-		PUSH D
-		PUSH H
-		CALL IPUTS
-		DB 'SELDSK procedure entered: '
-		DB 00H
-		CALL PRINT_DISK_DEBUG
-		POP H
-		POP D
-		POP B
-		POP PSW
-		LHLD ORIGINAL_SP; Restore original stack
-		SPHL
-		POP H			; Restore original content of HL
-	ENDIF		
+        CPI 04H     ; Only four partitions supported
+        JNC BIOS_SELDSK_PROC_WRNDSK
+        STA DISK_DISK
+		LXI H, DISKA_DPH	
 		RET
+BIOS_SELDSK_PROC_WRNDSK:
+        LXI H, 0
+        RET
 		
 BIOS_SETSEC_PROC:
 		PUSH H
@@ -424,18 +412,11 @@ BIOS_READ_PROC:
 	ENDIF
 		PUSH B				; Now save remaining registers
 		PUSH D
-		LDA DISK_TRACK
-		ADI 00H				;This is temp, TODO: remove hardwired addres of partition
-		STA CFLBA0
-		LDA DISK_TRACK+1
-		ACI 08H
-		STA CFLBA1
-		MVI A, 0
-		STA CFLBA2
-		STA CFLBA3
-		LXI D, BLKDAT
-		CALL CFRSECT
-	IF DEBUG > 1
+        CALL CALC_CFLBA_FROM_PART_ADR
+        CPI 00H                            ; If 0 in A, no valid LBA calculated
+        JZ BIOS_READ_PROC_RET_ERR          ; In that case return and report error
+		CALL CFRSECT_WITH_CACHE
+	IF DEBUG > 0
         PUSH PSW
         PUSH B
 		PUSH D
@@ -448,68 +429,17 @@ BIOS_READ_PROC:
 	ENDIF
 		; If no error there should be 0 in A
 		CPI 00H
-		JZ BIOS_READ_PROC_GET_SECT		; No error, just read sector
-		POP D							; Otherwise report error and return - first restore registers
+		JZ BIOS_READ_PROC_GET_SECT		; No error, just read sector. Otherwise report error and return.
+BIOS_READ_PROC_RET_ERR
+		POP D							; Restore registers
 		POP B
 		LHLD ORIGINAL_SP				; Restore original stack
 		SPHL
 		POP H							; Restore original content of HL
 		MVI A, 1						; Report error					
 		RET								; Return
-BIOS_READ_PROC_GET_SECT
-		LDA DISK_SECTOR
-		
-		MOV E, A
-		MVI D, 0
-		
-		ADD E
-		MOV E, A
-		MOV A, D
-		ADC D
-		MOV D, A
-		
-		MOV A, E
-		ADD E
-		MOV E, A
-		MOV A, D
-		ADC D
-		MOV D, A
-		
-		MOV A, E
-		ADD E
-		MOV E, A
-		MOV A, D
-		ADC D
-		MOV D, A
-		
-		MOV A, E
-		ADD E
-		MOV E, A
-		MOV A, D
-		ADC D
-		MOV D, A
-		
-		MOV A, E
-		ADD E
-		MOV E, A
-		MOV A, D
-		ADC D
-		MOV D, A
-		
-		MOV A, E
-		ADD E
-		MOV E, A
-		MOV A, D
-		ADC D
-		MOV D, A
-		
-		MOV A, E
-		ADD E
-		MOV E, A
-		MOV A, D
-		ADC D
-		MOV D, A
-
+BIOS_READ_PROC_GET_SECT:
+        CALL BIOS_CALC_SECT_IN_BUFFER
 		; Now DE contains the 16-bit result of multiplying the original value by 128
 		; D holds the high byte and E holds the low byte of the result
 		; Calculate the address of the CP/M sector in the BLKDAT
@@ -594,11 +524,76 @@ BIOS_WRITE_PROC:
 		POP B
 		POP PSW
 	ENDIF
-	
+		PUSH B				; Now save remaining registers
+		PUSH D
+        ; Check content of C - deblocking code
+        MOV A, C
+        CPI 2               ; Is it first sector of new track?
+        JZ BIOS_WRITE_NEW_TRACK
+		; First read sector to have complete data in buffer
+		CALL CFRSECT_WITH_CACHE
+		CPI 00H
+		JNZ BIOS_WRITE_RET_ERR			; If we ae unable to read sector, it ends here. We would risk FS crash otherwise.
+		CALL BIOS_CALC_SECT_IN_BUFFER
+		; Now DE contains the 16-bit result of multiplying the original value by 128
+		; D holds the high byte and E holds the low byte of the result
+		; Calculate the address of the CP/M sector in the BLKDAT
+		LXI H, BLKDAT
+		MOV A, E
+		ADD L
+		MOV E, A
+		MOV A, D
+		ADC H
+		MOV D, A
+        JMP BIOS_WRITE_PERFORM
+        ; No need to calculate sector location in BLKDAT.
+        ; Thanks to deblocking code = 2 we know it is first secor of new track
+        ; Just fill remaining bytes of buffer with 0xE5 and copy secotr to the
+        ; beginning of BLKDAT. Then write.
+BIOS_WRITE_NEW_TRACK
+        LXI H, BLKDAT+128
+        LXI B, 384
+BIOS_WRITE_E5_FILL_LOOP:
+        MVI A, 0E5H
+        MOV M, A
+        INX H
+        DCX B
+        MOV A, B
+        ORA C
+        JNZ BIOS_WRITE_E5_FILL_LOOP
+        LXI D, BLKDAT
+BIOS_WRITE_PERFORM:
+		; Addres of sector in BLKDAT is now in DE
+		LHLD DISK_DMA	; Load source address to HL
+		; Replace HL and DE. HL will now contain address od sector in BLKDAT and DE will store source from DISK_DMA
+		XCHG
+		LXI B, 0080H	; How many bytes to copy?
+		CALL MEMCOPY
+		; Buffer is updated with new sector data. Perform write.
+        CALL CALC_CFLBA_FROM_PART_ADR
+        CPI 00H         ; If A=0, no valid LBA calculated
+        JZ BIOS_WRITE_RET_ERR ; Return and report error
+		LXI D, BLKDAT
+		CALL CFWSECT
+		CPI 00H			; Check result
+		JNZ BIOS_WRITE_RET_ERR
+		JMP BIOS_WRITE_RET_OK				
+BIOS_WRITE_RET_ERR:
+        MVI A, 00H
+        STA CFVAL
+		MVI A, 1
+		JMP BIOS_WRITE_RET
+BIOS_WRITE_RET_OK:
+        MVI A, 01H
+        STA CFVAL
+        CALL CFUPDPLBA
+		MVI A, 0
+BIOS_WRITE_RET:
+		POP D
+		POP B	
 		LHLD ORIGINAL_SP; Restore original stack
 		SPHL
 		POP H			; Restore original content of HL
-		MVI A, 1	; <--- Stub error in every write
 		RET
 		 
 BIOS_PRSTAT_PROC:
@@ -724,6 +719,129 @@ BIOS_KBDCRTLSET:
         STA KBDNEW					;Zero new data
         MVI B, 00H					;Return result code
         RET
+        
+BIOS_CALC_SECT_IN_BUFFER:
+        LDA DISK_SECTOR  ; Load sector number
+        MOV E, A         ; Store in E (low byte)
+        MVI D, 0         ; Clear D (high byte)
+        MVI B, 7         ; Loop counter (7 shifts)
+CALC_SECTOR_SHIFT_LOOP:
+        MOV A, E  
+        ADD A   ; Shift E left (×2)
+        MOV E, A  
+        MOV A, D  
+        ADC A   ; Shift D left with carry
+        MOV D, A  
+        DCR B   ; Decrement counter
+        JNZ CALC_SECTOR_SHIFT_LOOP  ; Repeat until done		
+		RET
+        
+CALC_CFLBA_FROM_PART_ADR:
+        LXI H, PARTADDR
+        LDA DISK_DISK
+CALC_CFLBA_LOOP_START
+        CPI 00H
+        JZ CALC_CFLBA_LOOP_END
+        DCR A
+        INX H
+        INX H
+        INX H
+        INX H
+        JMP CALC_CFLBA_LOOP_START
+; Check if partition address is != 0
+        MOV D, H
+        MOV E, L
+        CALL ISZERO32BIT
+        JZ CALC_CFLBA_RET_ERR
+CALC_CFLBA_LOOP_END:       
+        MOV B, M
+        INX H
+        MOV C, M
+        INX H
+        MOV D, M
+        INX H
+        MOV E, M
+        LHLD DISK_TRACK
+        ; ADD lower 16 bits (HL + BC)
+        MOV   A, L
+        ADD   B            ; A = L + B
+        MOV   B, A         ; Store result in C
+        MOV   A, H
+        ADC   C            ; A = H + C + Carry
+        MOV   C, A         ; Store result in B
+        ; ADD upper 16 bits (DE + Carry)
+        MOV   A, D
+        MVI   D, 00H
+        ADC   D             ; D = D + Carry
+        MOV   D, A
+        MOV   A, E
+        MVI   E, 00H
+        ADC   E             ; E = E + Carry
+        MOV   E, A
+        ; Store the result back at LBA        
+        MOV A, B
+        STA CFLBA0
+        MOV A, C
+        STA CFLBA1
+        MOV A, D
+        STA CFLBA2
+        MOV A, E
+        STA CFLBA3
+        MVI A, 01H
+        RET
+CALC_CFLBA_RET_ERR
+        MVI A, 00H
+        RET
+        
+; This assumes that MBR is already in BLKDAT
+; CALL BIOS_CFGETMBR FIRST!
+BIOS_CFLDPARTADDR:
+        LDA BLKDAT+446+8
+        STA PARTADDR
+        LDA BLKDAT+446+8+1
+        STA PARTADDR+1
+        LDA BLKDAT+446+8+2
+        STA PARTADDR+2
+        LDA BLKDAT+446+8+3
+        STA PARTADDR+3
+        
+        LDA BLKDAT+462+8
+        STA PARTADDR+4
+        LDA BLKDAT+462+8+1
+        STA PARTADDR+5
+        LDA BLKDAT+462+8+2
+        STA PARTADDR+6
+        LDA BLKDAT+462+8+3
+        STA PARTADDR+7
+        
+        LDA BLKDAT+478+8
+        STA PARTADDR+8
+        LDA BLKDAT+478+8+1
+        STA PARTADDR+9
+        LDA BLKDAT+478+8+2
+        STA PARTADDR+10
+        LDA BLKDAT+478+8+3
+        STA PARTADDR+11
+
+        LDA BLKDAT+494+8
+        STA PARTADDR+12
+        LDA BLKDAT+494+8+1
+        STA PARTADDR+13
+        LDA BLKDAT+494+8+2
+        STA PARTADDR+14
+        LDA BLKDAT+494+8+3
+        STA PARTADDR+15
+        RET
+        
+BIOS_CFGETMBR:
+        MVI A, 00H
+        STA CFLBA3
+        STA CFLBA2
+        STA CFLBA1
+        STA CFLBA0
+        LXI D, BLKDAT
+        CALL CFRSECT
+		RET
 		
 		
 	IF DEBUG > 0

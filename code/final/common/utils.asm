@@ -189,6 +189,23 @@ BLUR1:  RAR
         MOV     L,B
         MOV     H,A
         RET
+        
+; Checks if 32bit values pointed by HL and DE are equal        
+IS32BIT_EQUAL:
+    MVI B, 4        		; Set counter for 4 bytes
+    MVI A, 1        		; Assume values are equal (flag set to 1)
+IS32BIT_EQUAL_LOOP:
+    LDAX D          		; Load byte from second value (ADDR2)
+    CMP M           		; Compare with byte at first value (ADDR1)
+    JNZ IS32BIT_NOT_EQUAL   ; If not equal, jump to NOT_EQUAL
+    INX H           		; Move to next byte in ADDR1
+    INX D           		; Move to next byte in ADDR2
+    DCR B           		; Decrement byte counter
+    JNZ IS32BIT_EQUAL_LOOP  ; Repeat until all bytes are checked
+    RET             		; Return with A = 1 (equal)
+IS32BIT_NOT_EQUAL:
+    MVI A, 0        		; Set A = 0 (not equal)
+    RET             		; Return
 
 ;THIS IS JUSY ENDLESS LOOP. Go here if something is wrong.		
 ENDLESS_LOOP:

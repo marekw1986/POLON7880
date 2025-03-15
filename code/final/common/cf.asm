@@ -1,12 +1,14 @@
 CFINIT:
 		MVI A, 00H
 		STA	CFLBA3
-		MVI A, 00H
 		STA	CFLBA2
-		MVI A, 00H
 		STA	CFLBA1
-		MVI A, 00H
 		STA	CFLBA0
+		STA PCFLBA3
+		STA PCFLBA2
+		STA PCFLBA1
+		STA PCFLBA0
+		STA CFVAL
         MVI A, 04H
         OUT CFREG7
         CALL CFWAIT_TMOUT
@@ -129,7 +131,7 @@ CFINFO:
         CALL PRNSTR
         CALL NEWLINE
         RET        
-
+		
 ; Reads single sector
 ; Source in CFLBAx variables
 ; Destination address in DE        
@@ -140,9 +142,58 @@ CFRSECT:
 		CALL CFWAIT
 		MVI A, 20H						;READ SECTOR COMMAND
 		OUT	CFREG7
-		;LXI	D, LOAD_BASE
 		CALL CFREAD
 		CALL CFCHERR
+		RET
+        
+; Reads single sector
+; Source in CFLBAx variables
+; Destination address is BLKDAT     
+CFRSECT_WITH_CACHE:
+		LDA CFVAL						; Check if we have valid data in buffer
+		CPI 00H
+		JZ	CFRSECT_WITH_CACHE_PERFORM  ; If not, read
+		LXI H, CFLBA3					; Check if old and new LBA values are equal
+		LXI D, PCFLBA3
+		CALL IS32BIT_EQUAL
+		CPI 00H							; If not, new LBA. Read imediately
+		JZ CFRSECT_WITH_CACHE_PERFORM
+		; We already have valid data in buffer. No need to read it again
+		MVI A, 00H						; Store 0 in A to signalize no err
+		RET
+CFRSECT_WITH_CACHE_PERFORM:
+		CALL CFSLBA						;SET LBA
+		MVI A, 01H
+		OUT	CFREG2						;READ ONE SECTOR
+		CALL CFWAIT
+		MVI A, 20H						;READ SECTOR COMMAND
+		OUT	CFREG7
+		LXI	D, BLKDAT
+		CALL CFREAD
+		CALL CFCHERR
+		CPI 00H							; If A=0, no error, good read
+		JNZ CFRSECT_WITH_CACHE_BAD
+		PUSH PSW
+		PUSH H
+		PUSH D
+		PUSH B
+		MVI A, 01H
+		STA CFVAL
+		; copy CFLBAx toPCFLBAx
+		LXI D, CFLBA3
+		LXI H, PCFLBA3
+		MVI B, 4
+		CALL MEMCOPY
+		POP B
+		POP D
+		POP H
+		POP PSW 
+		RET
+CFRSECT_WITH_CACHE_BAD:
+        PUSH PSW
+        MVI A, 00H
+        STA CFVAL
+        POP PSW
 		RET
 		
 CFR32SECTORS:
@@ -156,7 +207,7 @@ CFR32SECTORS:
 		CALL CFREAD
 		CALL CFCHERR
 		RET
-        
+		
 CFWSECT:
         CALL CFSLBA                     ;SET LBA
         MVI A, 01H
@@ -164,10 +215,10 @@ CFWSECT:
         CALL CFWAIT
         MVI A, 30H                      ;WRITE SECTOR COMMAND
         OUT CFREG7
-        LXI D, LOAD_BASE
         CALL CFWRITE
         CALL CFCHERR
         RET
+        
 
 PRN_PARTITION_TABLE:
         ;Print partition info
@@ -266,3 +317,14 @@ LOAD_PARTITION1:
 		CALL CFREAD
 		CALL CFCHERR
 		RET
+
+CFUPDPLBA:
+        LDA CFLBA3
+        STA PCFLBA3
+        LDA CFLBA2
+        STA PCFLBA2
+        LDA CFLBA1
+        STA PCFLBA1
+        LDA CFLBA0
+        STA PCFLBA0
+        RET
