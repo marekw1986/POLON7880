@@ -2135,6 +2135,7 @@ RTCTICK DS   2							;RTC tick timer/uptime
 KBDDATA DS   1                          ;Keyboard last received code
 KBDKRFL DS	 1							;Keyboard key release flag
 KBDSFFL DS	 1							;Keyboard Shift flag
+KBDCTRLFL DS	 1							;Keyboard Shift flag
 KBDOLD	DS	 1							;Keyboard old data
 KBDNEW	DS	 1							;Keyboard new data
 CURSOR  DS   2                          ;VDP cursor x position

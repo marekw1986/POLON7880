@@ -117,6 +117,9 @@ KBD2A_CHKSFT:
 		JZ KBD2A_CHKKRSETSF			;If not, go to the next stage
 		CPI 59H						;Check if it is (right) shift code
 		JZ KBD2A_CHKKRSETSF			;If not, go to the next stage
+KBD2A_CHKCTRL:
+        CPI 14H                     ;Check of it is (left) control  code
+        JZ KBD2A_CHKKRSETCTRL       ;If not, go to to next stage
 KBD2A_SVNEWDATA:
 		MOV B, A					;Save current code in B
 		LDA KBDNEW
@@ -125,7 +128,7 @@ KBD2A_SVNEWDATA:
 		STA KBDNEW					;New data = received code
 		LDA KBDKRFL
 		CPI 01H						;Check if key release flag is set
-        JNZ KBD2A_CHKSHFFLSET		;If not, go to the next stage
+        JNZ KBD2A_CHKCTRLFLSET		;If not, go to the next stage
         LDA KBDOLD					;Load old data to acumulator
         MOV B, A
         LDA KBDNEW
@@ -137,6 +140,14 @@ KBD2A_CLRKRFL:
 		MVI A, 00H
 		STA KBDKRFL
 		JMP KBD2A_CLRDATA_RETURN
+KBD2A_CHKCTRLFLSET:
+		LDA KBDNEW					;Put newest key scancode in A
+		MOV B, A					;Then move it to B
+		LDA KBDCTRLFL				;Check ctrl flag
+		CPI 00H                     ;This is needed - LDA doesn't affect zero flag
+		JZ KBD2A_CHKSHFFLSET		;Just check SHIFT
+		MVI L, 03H					;We are looking in CTRL table if ctrl flag is set
+        JMP KBD2A_LOOKUP
 KBD2A_CHKSHFFLSET:
 		MVI L, 01H					;Just assume we are looking LC table
 		LDA KBDNEW					;Put newest key scancode in A
@@ -145,7 +156,7 @@ KBD2A_CHKSHFFLSET:
 		CPI 00H                     ;This is needed - LDA doesn't affect zero flag
 		JZ KBD2A_LOOKUP				;Just search in LC table
 		MVI L, 02H					;We are looking in UC table if shift flag is set
-KBD2A_LOOKUP		
+KBD2A_LOOKUP:		
 		CALL KBDSCANTABLE			;Call scantable searching subroutine
 		CPI 00H						;Check if it returned zero (this is needed)
 		JZ KBD2A_CLRDATA_RETURN		;If yes, clear data and return
@@ -154,6 +165,13 @@ KBD2A_LOOKUP
 		STA KBDDATA
 		MOV A, B
 		RET
+KBD2A_CHKKRSETCTRL:
+		LDA KBDKRFL
+		CPI 01H						;Check if key release flag is set
+		JZ KBD2A_CLRFLDATA_RETURN	;If yes clear flags (and data?) and return
+		MVI A, 01H					;If not, set ctrl flag
+		STA KBDCTRLFL
+		JMP KBD2A_CLRDATA_RETURN    ;Clear KBDDATA and return    
 KBD2A_CHKKRSETSF:        
 		LDA KBDKRFL
 		CPI 01H						;Check if key release flag is set
@@ -164,6 +182,7 @@ KBD2A_CHKKRSETSF:
 KBD2A_CLRFLDATA_RETURN:
 		MVI A, 00H
 		STA KBDSFFL
+        STA KBDCTRLFL
 		STA KBDKRFL
 KBD2A_CLRDATA_RETURN:
         MVI A, 00H
@@ -180,9 +199,10 @@ KBDSCANTABLE_LOOP:
 		LDAX D				        	;Load next scancode from table to A
 		CMP B							;Compare A with current receivedscancode (stored in B)
 		JZ KBDSCANTABLE_FOUND
-		INX D                       	;Increment index pointer three times
+		INX D                       	;Increment index pointer four times
 		INX D                       	;To go to the next scancode
 		INX D
+        INX D
 		MOV A, D						;Move high address stored in DE to A
 		MVI C, HIGH(PS2_SCANCODES_END)	;High byte of address of scandoce table end in C
 		CMP C							;Compare A with C
