@@ -1712,6 +1712,17 @@ BOOT_MODE_INPUT:
 BOOT_CPM:
 		DI
         CALL LOAD_PARTITION1
+        CPI 00H
+        JZ JUMP_TO_CPM
+        CALL IPUTS
+        DB 'CP/M load error. Reset.'
+        DB 00H
+        CALL ENDLESS_LOOP
+JUMP_TO_CPM:
+        CALL NEWLINE
+        CALL IPUTS
+        DB 'Load successfull.'
+        DB 00H
         CALL NEWLINE
         JMP BIOS_ADDR
         

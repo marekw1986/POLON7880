@@ -81,7 +81,7 @@ LD_PART_TABLE:
 		POP PSW
 	ENDIF
 		CALL IPUTS
-		DB 'Loading CP/M 2.2'
+		DB 'Running CP/M 2.2'
 		DB CR
 		DB 00H
 		CALL IPUTS
