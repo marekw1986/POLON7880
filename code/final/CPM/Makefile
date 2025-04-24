@@ -14,11 +14,13 @@ poloncpm.img : cpm22.bin
 	cpmcp -f polon-2k-8m poloncpm.img ./zork1/* 0:
 #	cpmcp -f polon-2k-8m poloncpm.img ./sargon/* 0:
 
+prepare_files: 
+	git clone https://github.com/Z80-Retro/cpm-2.2.git
+	mv ./cpm-2.2/filesystem ./
+	rm -rf ./cpm-2.2
+
 #boot.p boot.lst: boot.asm
 #	asl -o boot.p -L -OLIST boot.lst boot.asm -cpu 8080
-	
-ccp.p ccp.lst: ccp.asm
-	asl -D origin=9c00h -o ccp.p -L -OLIST ccp.lst ccp.asm -cpu 8080
 	
 ccp.asm bdos.asm:
 	git clone https://github.com/brouhaha/cpm22.git
@@ -27,9 +29,12 @@ ccp.asm bdos.asm:
 	sed -i '/.cpu	8080/d' ./bdos.asm
 	sed -i '/.cpu	8080/d' ./ccp.asm
 	rm -rf ./cpm22
+	
+ccp.p ccp.lst: ccp.asm
+	asl -D origin=0dc00h -o ccp.p -L -OLIST ccp.lst ccp.asm -cpu 8080
 
 bdos.p bdos.lst: bdos.asm
-	asl -D origin=0a406h -o bdos.p -L -OLIST bdos.lst bdos.asm -cpu 8080
+	asl -D origin=0e406h -o bdos.p -L -OLIST bdos.lst bdos.asm -cpu 8080
 	
 bios.p bios.lst: bios.asm
 	asl -o bios.p -L -OLIST bios.lst bios.asm -cpu 8080
@@ -39,3 +44,4 @@ cpm22.bin: ccp.p bdos.p bios.p
 
 clean:
 	rm -f *.p *.bin *.lst *.img
+	rm -rf ./cpm-2.2

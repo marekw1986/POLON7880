@@ -1,6 +1,6 @@
-		include "labels.asm"
-;STACK 	EQU 7FFFH
-CCP		EQU	9C00H   ; was 2200H
+        include "variables.asm"
+
+CCP		EQU	0DC00H   ; was 2200H
 BDOS	EQU CCP+806H
 BIOS	EQU CCP+1600H
 CDISK	EQU	0004H
@@ -19,7 +19,7 @@ DEBUG	EQU 0
 ;*
 ;**************************************************************
 		
-		org 0B200H   ; was 3800H
+		org 0F200H   ; was 3800H
 	IF $ != CCP+1600H
 		error "BIOS begins at wrong address!"
 	ENDIF	
@@ -45,10 +45,43 @@ BIOS_BOOT_PROC:
 		DI
 		LXI  H, BIOS_STACK
 		SPHL
+
+        ; Turn on ROM shadowing
+		MVI  A, 084H
+        OUT  PORT_8212
+        NOP
+        NOP
+        
+        ;Initialize 8253
+		MVI  A, 30H                     ;TIMER0 - systick
+		OUT  CONTR_W_8253               ;Timer 0, write LSB then MSB, mode 0, binary 
+		MVI  A, 00H                     ;LSB, interrupt every 20ms
+		OUT  COUNT_REG_0_8253
+		MVI  A, 0A0H                    ;MSB, interrupt every 20ms (0xF0 for 30 ms)
+		OUT  COUNT_REG_0_8253	
+		MVI  A, 0B6H                    ;TIMER2 - baudrate generator for 8251
+		OUT CONTR_W_8253                ;Timer 2, write LSB then MSB, mode 3, binary
+		MVI  A, 0DH                     ;LSB
+		OUT  COUNT_REG_2_8253
+		MVI  A, 00H                     ;MSB
+		OUT  COUNT_REG_2_8253          
+        ;Initialize 8251
+        MVI  A, 00H
+        OUT  UART_8251_CTRL
+        MVI  A, 00H
+        OUT  UART_8251_CTRL
+        MVI  A, 00H
+        OUT  UART_8251_CTRL
+        MVI  A, 40H						;Initiate UART reset
+        OUT  UART_8251_CTRL
+        MVI	 A, 4EH						;Mode: 8 data, 1 stop, x16
+        OUT	 UART_8251_CTRL
+        MVI	 A, 37H
+        OUT	 UART_8251_CTRL
         
         XRA A
         LXI H, 0000H
-        LXI B, 9C00H
+        LXI B, CCP
 ZERO_LOOP:
         MVI A, 00H
         MOV M, A
@@ -57,7 +90,7 @@ ZERO_LOOP:
         MOV A, B
         ORA C
         JNZ ZERO_LOOP
-        CALL BIOS_CFGETMBR
+        CALL CFGETMBR
         CPI 00H                     ; Check if MBR loaded properly
         JZ LD_PART_TABLE
         CALL IPUTS
@@ -65,7 +98,18 @@ ZERO_LOOP:
         DB 00H
         CALL ENDLESS_LOOP
 LD_PART_TABLE:
-        CALL BIOS_CFLDPARTADDR
+        CALL CFLDPARTADDR
+CFVAR_INIT:
+		MVI A, 00H
+		STA	CFLBA3
+		STA	CFLBA2
+		STA	CFLBA1
+		STA	CFLBA0
+		STA PCFLBA3
+		STA PCFLBA2
+		STA PCFLBA1
+		STA PCFLBA0
+		STA CFVAL
 	IF DEBUG > 0
 	    PUSH PSW
         PUSH B
@@ -212,7 +256,7 @@ GOCPM:
 		; This is here because it is in example CBIOS (AG p. 52)
 		LXI H, 0080H	;default DMA address is 80H (TODO! Check!)
 		SHLD DISK_DMA
-		
+        
 		; EI			;Enable interrupts
 		LDA CDISK	;Load current disk number
 		MOV C, A	;Send to the CCP
@@ -317,17 +361,14 @@ BIOS_SETTRK_PROC:
 		RET
 		  
 BIOS_SELDSK_PROC:
-		PUSH PSW
 		MOV A, C
         CPI 04H     ; Only four partitions supported
         JNC BIOS_SELDSK_PROC_WRNDSK
         STA DISK_DISK
 		LXI H, DISKA_DPH	
-		JMP BIOS_SELDSK_PROC_RET
+		RET
 BIOS_SELDSK_PROC_WRNDSK:
         LXI H, 0
-BIOS_SELDSK_PROC_RET
-		POP PSW
         RET
 		
 BIOS_SETSEC_PROC:
@@ -433,7 +474,7 @@ BIOS_READ_PROC:
 		; If no error there should be 0 in A
 		CPI 00H
 		JZ BIOS_READ_PROC_GET_SECT		; No error, just read sector. Otherwise report error and return.
-        JMP BIOS_READ_PROC_RET_ERR						; Return
+        JMP BIOS_READ_PROC_RET_ERR		; Return
 BIOS_READ_PROC_GET_SECT:
         CALL BIOS_CALC_SECT_IN_BUFFER
 		; Now DE contains the 16-bit result of multiplying the original value by 128
@@ -642,86 +683,86 @@ BIOS_SECTRN_PROC:
 ;0x05 - KBD DATA stuck high
 ;0x06 - Interface didn't pass the test
 ;0x07 - Keyboard reset failure/no keyboard present        
-BIOS_KBDINIT:
-        ;1. Disable devices
-        CALL KBDWAITINBUF           ;Send 0xAD command to the PS/2 controller
-        MVI A, 0ADH
-        OUT KBD_CMD
-        ;2. Flush The Output Buffer
-        IN KBD_STATUS
-        ANI 01H                     ;Check if there is data to flush
-        JZ BIOS_KBDCRTLSET              	;No? Next step then
-        IN KBD_DATA                 ;Yes? Get the data byte        
-BIOS_KBDCRTLSET:
-        ;3. Set the Controller Configuration Byte (temp)
-        CALL KBDWAITINBUF			;Send 0x60 command to the PS/2 controller
-        MVI A, 60H
-        OUT KBD_CMD
-        CALL KBDWAITINBUF			;Send actual configuration byte
-        MVI A, 08H					;Interrupts disabled, system flag set, first port clock enabled
-		OUT KBD_DATA				;second port clock disabled, first port translation disabled
-        ;4. Controller self test
-		CALL KBDWAITINBUF
-        MVI A, 0AAH                 ;Send 0xAA command to the PS/2 controller
-        OUT KBD_CMD
-		CALL KBDWAITOUTBUF          ;Wait for response
-        IN KBD_DATA                 ;Get byte
-        CPI 55H                     ;Is it 0x55?
-        MVI B, 01H					;Return result code if not
-        RNZ                          ;No? Return then
-        ;5. Interface test
-		CALL KBDWAITINBUF
-        MVI A, 0ABH                 ;Send 0xAB command
-        OUT KBD_CMD
-		CALL KBDWAITOUTBUF          ;Wait for response
-        IN KBD_DATA                 ;Get byte
-        CPI 01H                     ;Check if it is CLK stuck low error
-        MVI B, 02H                  ;Return result code if it is
-        RZ                         
-        CPI 02H                     ;Check if it is CLK stuck high error
-        MVI B, 03H                  ;Return result code if it is
-        RZ                         
-        CPI 03H                     ;Check if it is KBD DATA stuck low error
-        MVI B, 04H                  ;Return result code if it is
-        RZ
-        CPI 04H                     ;Check if it is KBD DATA stuck high error
-        MVI B, 05H                  ;Return result code if it is
-        RZ                         
-        CPI 00H                     ;Is it 0x00? Did it pass the test?
-        MVI B, 06H					;Return result code if not
-        RNZ                          ;No? Return then
-        ;6. Enable Devices
-        CALL KBDWAITINBUF
-        MVI A, 0AEH                 ;Send 0xAE command
-        OUT KBD_CMD
-        ;7. Reset Device
-        CALL KBDWAITINBUF           ;Wait untill ready to send
-        MVI A, 0FFH                 ;Send 0xFF to device
-        OUT KBD_DATA                ;Send it to device, not the controller
-        MVI C, 130                  ;Setup DELAY routine
-        CALL DELAY                  ;This is required to avoid freeze
-        CALL KBDWAITOUTBUF          ;Wait for response
-        IN KBD_DATA                 ;Get byte
-        CPI 0FAH                    ;Is it 0xFA? 0xFC means failure. No response means no device present.
-        MVI B, 07H					;Return result code if not
-        RNZ                          ;No? Return then
-        ;8. Set the Controller Configuration Byte (final)
-        CALL KBDWAITINBUF			;Send 0x60 command to the PS/2 controller
-        MVI A, 60H
-        OUT KBD_CMD
-        CALL KBDWAITINBUF			;Send actual configuration byte
-        MVI A, 08H					;Interrupts disabled, system flag set, first port clock enabled
-		OUT KBD_DATA				;second port clock disabled, first port translation disabled
-        ;9. Zero out buffer        
-        MVI A, 00H                  
-        STA KBDDATA					;Zero KBDDATA
-        STA KBDKRFL					;Zero key release flag
-        STA KBDSFFL					;Zero shift flag
-        STA KBDOLD					;Zero old data
-        STA KBDNEW					;Zero new data
-        MVI B, 00H					;Return result code
-        RET
-        
+;BIOS_KBDINIT:
+;        ;1. Disable devices
+;        CALL KBDWAITINBUF           ;Send 0xAD command to the PS/2 controller
+;        MVI A, 0ADH
+;        OUT KBD_CMD
+;        ;2. Flush The Output Buffer
+;        IN KBD_STATUS
+;        ANI 01H                     ;Check if there is data to flush
+;        JZ BIOS_KBDCRTLSET              	;No? Next step then
+;        IN KBD_DATA                 ;Yes? Get the data byte        
+;BIOS_KBDCRTLSET:
+;        ;3. Set the Controller Configuration Byte (temp)
+;        CALL KBDWAITINBUF			;Send 0x60 command to the PS/2 controller
+;        MVI A, 60H
+;        OUT KBD_CMD
+;        CALL KBDWAITINBUF			;Send actual configuration byte
+;        MVI A, 08H					;Interrupts disabled, system flag set, first port clock enabled
+;		OUT KBD_DATA				;second port clock disabled, first port translation disabled
+;        ;4. Controller self test
+;		CALL KBDWAITINBUF
+;        MVI A, 0AAH                 ;Send 0xAA command to the PS/2 controller
+;        OUT KBD_CMD
+;		CALL KBDWAITOUTBUF          ;Wait for response
+;        IN KBD_DATA                 ;Get byte
+;        CPI 55H                     ;Is it 0x55?
+;        MVI B, 01H					;Return result code if not
+;        RNZ                          ;No? Return then
+;        ;5. Interface test
+;		CALL KBDWAITINBUF
+;        MVI A, 0ABH                 ;Send 0xAB command
+;       OUT KBD_CMD
+;		CALL KBDWAITOUTBUF          ;Wait for response
+;        IN KBD_DATA                 ;Get byte
+;        CPI 01H                     ;Check if it is CLK stuck low error
+;        MVI B, 02H                  ;Return result code if it is
+;        RZ                         
+;        CPI 02H                     ;Check if it is CLK stuck high error
+;        MVI B, 03H                  ;Return result code if it is
+;        RZ                         
+;        CPI 03H                     ;Check if it is KBD DATA stuck low error
+;        MVI B, 04H                  ;Return result code if it is
+;        RZ
+;        CPI 04H                     ;Check if it is KBD DATA stuck high error
+;        MVI B, 05H                  ;Return result code if it is
+;        RZ                         
+;        CPI 00H                     ;Is it 0x00? Did it pass the test?
+;        MVI B, 06H					;Return result code if not
+;        RNZ                          ;No? Return then
+;        ;6. Enable Devices
+;        CALL KBDWAITINBUF
+;        MVI A, 0AEH                 ;Send 0xAE command
+;        OUT KBD_CMD
+;        ;7. Reset Device
+;        CALL KBDWAITINBUF           ;Wait untill ready to send
+;        MVI A, 0FFH                 ;Send 0xFF to device
+;        OUT KBD_DATA                ;Send it to device, not the controller
+;        MVI C, 130                  ;Setup DELAY routine
+;        CALL DELAY                  ;This is required to avoid freeze
+;        CALL KBDWAITOUTBUF          ;Wait for response
+;        IN KBD_DATA                 ;Get byte
+;        CPI 0FAH                    ;Is it 0xFA? 0xFC means failure. No response means no device present.
+;        MVI B, 07H					;Return result code if not
+;        RNZ                          ;No? Return then
+;        ;8. Set the Controller Configuration Byte (final)
+;        CALL KBDWAITINBUF			;Send 0x60 command to the PS/2 controller
+;        MVI A, 60H
+;        OUT KBD_CMD
+;        CALL KBDWAITINBUF			;Send actual configuration byte
+;        MVI A, 08H					;Interrupts disabled, system flag set, first port clock enabled
+;		OUT KBD_DATA				;second port clock disabled, first port translation disabled
+;        ;9. Zero out buffer        
+;        MVI A, 00H                  
+;        STA KBDDATA					;Zero KBDDATA
+;        STA KBDKRFL					;Zero key release flag
+;        STA KBDSFFL					;Zero shift flag
+;        STA KBDOLD					;Zero old data
+;        STA KBDNEW					;Zero new data
+;        MVI B, 00H					;Return result code
+;        RET
+
 BIOS_CALC_SECT_IN_BUFFER:
         LDA DISK_SECTOR  ; Load sector number
         MOV E, A         ; Store in E (low byte)
@@ -794,57 +835,6 @@ CALC_CFLBA_LOOP_END:
 CALC_CFLBA_RET_ERR
         MVI A, 00H
         RET
-        
-; This assumes that MBR is already in BLKDAT
-; CALL BIOS_CFGETMBR FIRST!
-BIOS_CFLDPARTADDR:
-        LDA BLKDAT+446+8
-        STA PARTADDR
-        LDA BLKDAT+446+8+1
-        STA PARTADDR+1
-        LDA BLKDAT+446+8+2
-        STA PARTADDR+2
-        LDA BLKDAT+446+8+3
-        STA PARTADDR+3
-        
-        LDA BLKDAT+462+8
-        STA PARTADDR+4
-        LDA BLKDAT+462+8+1
-        STA PARTADDR+5
-        LDA BLKDAT+462+8+2
-        STA PARTADDR+6
-        LDA BLKDAT+462+8+3
-        STA PARTADDR+7
-        
-        LDA BLKDAT+478+8
-        STA PARTADDR+8
-        LDA BLKDAT+478+8+1
-        STA PARTADDR+9
-        LDA BLKDAT+478+8+2
-        STA PARTADDR+10
-        LDA BLKDAT+478+8+3
-        STA PARTADDR+11
-
-        LDA BLKDAT+494+8
-        STA PARTADDR+12
-        LDA BLKDAT+494+8+1
-        STA PARTADDR+13
-        LDA BLKDAT+494+8+2
-        STA PARTADDR+14
-        LDA BLKDAT+494+8+3
-        STA PARTADDR+15
-        RET
-        
-BIOS_CFGETMBR:
-        MVI A, 00H
-        STA CFLBA3
-        STA CFLBA2
-        STA CFLBA1
-        STA CFLBA0
-        LXI D, BLKDAT
-        CALL CFRSECT
-		RET
-		
 		
 	IF DEBUG > 0
 PRINT_DISK_DEBUG
@@ -919,6 +909,11 @@ PRINT_COLON:
 		DB 00H
 		RET
 	ENDIF
+
+        include "cf.asm"
+        include "utils.asm"
+        include "../common/definitions.asm"
+        include "../common/hexdump.asm"
 	
 LAST_CHAR		DB	00H		; Last ASCII character from keyboard	
 DISK_DISK:		DB	00H		; Should it be here?
@@ -996,7 +991,3 @@ BIOS_STACK
 		error "Bios overwritten system variables!"
 	ENDIF
 		END
-		
-		
-;        ORG  7FFFH
-;STACK:  DS   0                          ;STACK STARTS HERE
