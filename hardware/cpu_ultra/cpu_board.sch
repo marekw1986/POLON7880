@@ -17949,6 +17949,11 @@ Source: http://www.semiconductors.philips.com/acrobat_download/datasheets/74HC_H
 <wire x1="246.38" y1="-22.86" x2="243.84" y2="-22.86" width="0.1524" layer="91"/>
 <label x="243.84" y="-22.86" size="1.4224" layer="95" rot="R180" xref="yes"/>
 </segment>
+<segment>
+<pinref part="IC4" gate="G$1" pin="!OE"/>
+<wire x1="337.82" y1="-60.96" x2="335.28" y2="-60.96" width="0.1524" layer="91"/>
+<label x="335.28" y="-60.96" size="1.4224" layer="95" rot="R180" xref="yes"/>
+</segment>
 </net>
 <net name="WR" class="0">
 <segment>
@@ -18857,13 +18862,6 @@ Source: http://www.semiconductors.philips.com/acrobat_download/datasheets/74HC_H
 <pinref part="IC5" gate="A" pin="3Y"/>
 <wire x1="431.8" y1="81.28" x2="436.88" y2="81.28" width="0.1524" layer="91"/>
 <label x="436.88" y="81.28" size="1.4224" layer="95" xref="yes"/>
-</segment>
-</net>
-<net name="N$42" class="0">
-<segment>
-<pinref part="IC4" gate="G$1" pin="!OE"/>
-<wire x1="337.82" y1="-60.96" x2="335.28" y2="-60.96" width="0.1524" layer="91"/>
-<label x="335.28" y="-60.96" size="1.4224" layer="95" rot="R180" xref="yes"/>
 </segment>
 </net>
 <net name="A19_CS_EPROM" class="0">
