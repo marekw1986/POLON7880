@@ -202,7 +202,7 @@
 <circle x="143.1125" y="117.395" radius="3.048" width="0" layer="42"/>
 <text x="33.655" y="11.43" size="1.778" layer="16" rot="MR0">POLON ULTRA
 CPU BOARD
-RQ9RZI 2025</text>
+SQ9RZI 2025</text>
 </plain>
 <libraries>
 <library name="rcl">
