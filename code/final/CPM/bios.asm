@@ -269,12 +269,11 @@ BIOS_CONST_PROC:
 		RET
 	
 BIOS_CONIN_PROC:
-        IN   UART_8251_CTRL
-        NOP
-        ANI  RxRDY_MASK
-        JZ BIOS_CONIN_PROC
-        IN   UART_8251_DATA
-		RET
+        IN  SCC2681_SRA
+        ANI RxRDY_MASK
+        JZ  IN_CHAR              ; Wait for data
+        IN  SCC2681_RHRA        ; Read received char (Channel A)
+        RET
 	
 BIOS_CONOUT_PROC:
 		PUSH H				; Save content  of HL on original stack, then switch to bios stack

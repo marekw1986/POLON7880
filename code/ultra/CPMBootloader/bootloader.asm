@@ -51,32 +51,28 @@ INIT:   LXI  H, 0000H
         SHLD RTCTICK
         MVI A, 00H
         STA  KBDDATA
-        ;Initialize 8253
-		MVI  A, 30H                     ;TIMER0 - systick
-		OUT  CONTR_W_8253               ;Timer 0, write LSB then MSB, mode 0, binary 
-		MVI  A, 00H                     ;LSB, interrupt every 20ms
-		OUT  COUNT_REG_0_8253
-		MVI  A, 0A0H                    ;MSB, interrupt every 20ms (0xF0 for 30 ms)
-		OUT  COUNT_REG_0_8253	
-		MVI  A, 0B6H                    ;TIMER2 - baudrate generator for 8251
-		OUT CONTR_W_8253                ;Timer 2, write LSB then MSB, mode 3, binary
-		MVI  A, 0DH                     ;LSB
-		OUT  COUNT_REG_2_8253
-		MVI  A, 00H                     ;MSB
-		OUT  COUNT_REG_2_8253          
-        ;Initialize 8251
-        MVI  A, 00H
-        OUT  UART_8251_CTRL
-        MVI  A, 00H
-        OUT  UART_8251_CTRL
-        MVI  A, 00H
-        OUT  UART_8251_CTRL
-        MVI  A, 40H						;Initiate UART reset
-        OUT  UART_8251_CTRL
-        MVI	 A, 4EH						;Mode: 8 data, 1 stop, x16
-        OUT	 UART_8251_CTRL
-        MVI	 A, 37H
-        OUT	 UART_8251_CTRL
+        
+        ; Initialize SCC2681 Channel A
+        MVI A, 00H
+        OUT SCC2681_CRA          ; Reset MR pointer
+        ; MR1A: 8-bit, no parity, normal mode, Rx enabled
+        MVI A, 13H               ; MR1A = 0001 0011
+                                 ; Rx enabled, no parity, 8-bit
+        OUT SCC2681_MR1A
+        ; MR2A: 1 stop bit, normal mode
+        MVI A, 07H               ; MR2A = 0000 0111
+                                 ; 1 stop bit, no special modes
+        OUT SCC2681_MR2A
+        ; Baud Rate Generator Configuration (example: 9600 baud)
+        MVI A, 88H               ; ACR = BRG set, clock divisor mode x16
+        OUT SCC2681_ACR
+        ; Set CSRA to baud rate divisor
+        MVI A, 0CH               ; CSRA = divisor for 9600 with 3.6864MHz crystal
+        OUT SCC2681_CSRA
+        ; Enable Tx and Rx
+        MVI A, 05H               ; CRA = Enable Rx (bit 0) and Tx (bit 2)
+        OUT SCC2681_CRA
+        
         ;Initialize 8259
         MVI  A, 0FFH					;ICW1 - LSB of IR0_VECT = 0xE0, level triggered, 4 byte intervals, one 8259, ICW4 needed
         OUT  PIC_8259_LOW				;ICW1 is written to the low port of 8259
@@ -261,7 +257,9 @@ IR3_VECT_ROM:
 		JMP RTC_ISR
         NOP
 IR4_VECT_ROM:
-		JMP TIMER_ISR
+        EI	
+        RET
+        NOP
         NOP
 IR5_VECT_ROM:
         EI	
@@ -310,23 +308,6 @@ KBD_ISR:
         IN KBD_DATA                     ;Get keyboard data
         STA KBDDATA                     ;Save received code
 KBD_ISR_RET:        
-        POP D
-        POP H        
-		POP PSW							;Restore machine status
-        EI                              ;Re-enable interrupts
-		RET								;Return to interrupted program
-
-TIMER_ISR:
-		PUSH PSW						;Save condition bits and accumulator
-        PUSH H
-        PUSH D
-        LHLD SYSTICK                    ;Load SYSTICK variable to HL
-        INX H                           ;Increment HL
-        SHLD SYSTICK                    ;Save HL in SYSTICK variable
- 	 	MVI  A, 00H                     ;Reload. LSB, interrupt every 20ms
-  		OUT  COUNT_REG_0_8253
-  		MVI  A, 0A0H                    ;Reload. MSB, interrupt every 20ms (0xF0 for 30 ms)
-  		OUT  COUNT_REG_0_8253                
         POP D
         POP H        
 		POP PSW							;Restore machine status

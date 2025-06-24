@@ -1,14 +1,14 @@
 ; Various utils
 
 OUT_CHAR:
-		PUSH PSW
-OUT_CHAR_WAIT:    
-		IN   UART_8251_CTRL             ;COME HERE TO DO OUTPUT
-        ANI  TxRDY_MASK                 ;STATUS BIT
-        JZ   OUT_CHAR_WAIT              ;NOT READY, WAIT
-        POP  PSW                        ;READY, GET OLD A BACK
-        OUT  UART_8251_DATA             ;AND SEND IT OUT
-		RET
+        PUSH PSW
+OUT_CHAR_WAIT:
+        IN  SCC2681_SRA
+        ANI TxRDY_MASK
+        JZ  OUT_CHAR_WAIT
+        POP PSW
+        OUT SCC2681_THRA        ; Transmit holding register (Channel A)
+        RET
     
 DELAY:
         MVI B, 255
