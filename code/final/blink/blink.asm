@@ -11,11 +11,11 @@
 		
 FULLSYS EQU 0
 
-        ORG  0C000H
+        ORG  0000H
         JMP  SET_PC
 SET_PC:
-		MVI  A, 04H
-        OUT  PORT_74237
+		MVI  A, 80H
+        OUT  PORT_8212
 START:  LXI  H,STACK
 		SPHL
 		JMP INIT
@@ -66,134 +66,20 @@ INIT:
 	ENDIF
 		
 LOOP:
-		MVI A, 84H
-		OUT PORT_74237
+		MVI A, 40H
+		OUT PORT_8212
 		MVI C, 255
 		CALL DELAY
-		MVI A, 44H
-		OUT PORT_74237
+		MVI A, 80H
+		OUT PORT_8212
 		MVI C, 255
 		CALL DELAY
 		JMP LOOP
 
         
-;Interrupt routines
-UART_RX_ISR:
-		PUSH PSW						;Save condition bits and accumulator
-        PUSH H
-        PUSH D
-        POP D
-        POP H        
-		POP PSW							;Restore machine status
-        EI                              ;Re-enable interrupts
-		RET								;Return to interrupted program
-
-UART_TX_ISR:
-		PUSH PSW						;Save condition bits and accumulator
-        PUSH H
-        PUSH D
-        POP D
-        POP H        
-		POP PSW							;Restore machine status
-        EI                              ;Re-enable interrupts
-		RET								;Return to interrupted program
-
-KBD_ISR:
-		PUSH PSW						;Save condition bits and accumulator
-        PUSH H
-        PUSH D
-        ;IN KBD_STATUS                  ;NO NEED TO TEST, INTERRUPT MODE!
-        ;ANI 01H                         ;Check if output buffer full
-        ;JZ KBD_ISR_RET                  ;Output buffer empty, end ISR
-        IN KBD_DATA                     ;Get keyboard data
-        STA KBDDATA                     ;Save received code
-KBD_ISR_RET:        
-        POP D
-        POP H        
-		POP PSW							;Restore machine status
-        EI                              ;Re-enable interrupts
-		RET								;Return to interrupted program
-
-TIMER_ISR:
-		PUSH PSW						;Save condition bits and accumulator
-        PUSH H
-        PUSH D
-        LHLD SYSTICK                    ;Load SYSTICK variable to HL
-        INX H                           ;Increment HL
-        SHLD SYSTICK                    ;Save HL in SYSTICK variable
- 	 	MVI  A, 60H                     ;Reload. LSB, interrupt every 20ms
-  		OUT  COUNT_REG_0_8253
-  		MVI  A, 0EAH                    ;Reload. MSB, interrupt every 20ms (0xF0 for 30 ms)
-  		OUT  COUNT_REG_0_8253                
-        POP D
-        POP H        
-		POP PSW							;Restore machine status
-        EI                              ;Re-enable interrupts
-		RET								;Return to interrupted program
-		
-RTC_ISR:
-		PUSH PSW						;Save condition bits and accumulator
-        PUSH H
-        PUSH D
-        MVI A, 00H                      ;Clear the RTC interrupt flag to change state of the line
-        OUT RTC_CTRLD_REG
-        LHLD RTCTICK                    ;Load RTCTICK variable to HL
-        INX H                           ;Increment HL
-        SHLD RTCTICK                    ;Save HL in RTCTICK variable        
-        POP D
-        POP H        
-		POP PSW							;Restore machine status
-        EI                              ;Re-enable interrupts
-		RET								;Return to interrupted program
-
-;Interrupt vectors
-IR0_VECT:
-		ORG  0FFE0H
-		JMP KBD_ISR
-        NOP
-        ;EI
-        ;RET
-        ;NOP
-        ;NOP        
-IR1_VECT:
-		;JMP UART_TX_ISR
-        ;NOP
-        EI
-        RET
-        NOP
-        NOP
-IR2_VECT:
-		;JMP UART_RX_ISR
-        ;NOP
-        EI
-        RET
-        NOP
-        NOP
-IR3_VECT:
-		JMP RTC_ISR
-        NOP
-IR4_VECT:
-		JMP TIMER_ISR
-        NOP
-IR5_VECT:
-        EI	
-        RET
-        NOP
-        NOP
-IR6_VECT:
-        EI	
-        RET
-        NOP
-        NOP
-IR7_VECT
-        EI	
-        RET
-        NOP
-        NOP
-        
 ;       ORG  1366H
 ;		ORG  1F00H
-		ORG	 4400H
+		ORG	 8000H
 TXTEND: DS   0                          ;TEXT SAVE AREA ENDS
 VARBGN: DS   55                         ;VARIABLE @(0)
 BUFFER: DS   64                         ;INPUT BUFFER
@@ -214,7 +100,7 @@ KBDNEW	DS	 1							;Keyboard new data
 CURSOR  DS   2                          ;VDP cursor x position
 STKLMT: DS   1                          ;TOP LIMIT FOR STACK
         
-        ORG  7FFFH
+        ORG  0FFDFH
 STACK:  DS   0                          ;STACK STARTS HERE
 ;
 
@@ -222,3 +108,4 @@ CR      EQU  0DH
 LF      EQU  0AH
 
 		END
+
