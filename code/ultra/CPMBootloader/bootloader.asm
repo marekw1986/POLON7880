@@ -52,26 +52,24 @@ INIT:   LXI  H, 0000H
         MVI A, 00H
         STA  KBDDATA
         
-        ; Initialize SCC2681 Channel A
-        MVI A, 00H
-        OUT SCC2681_CRA          ; Reset MR pointer
-        ; MR1A: 8-bit, no parity, normal mode, Rx enabled
-        MVI A, 13H               ; MR1A = 0001 0011
-                                 ; Rx enabled, no parity, 8-bit
-        OUT SCC2681_MR1A
-        ; MR2A: 1 stop bit, normal mode
-        MVI A, 07H               ; MR2A = 0000 0111
-                                 ; 1 stop bit, no special modes
-        OUT SCC2681_MR2A
-        ; Baud Rate Generator Configuration (example: 9600 baud)
-        MVI A, 88H               ; ACR = BRG set, clock divisor mode x16
-        OUT SCC2681_ACR
-        ; Set CSRA to baud rate divisor
-        MVI A, 0CH               ; CSRA = divisor for 9600 with 3.6864MHz crystal
-        OUT SCC2681_CSRA
-        ; Enable Tx and Rx
-        MVI A, 05H               ; CRA = Enable Rx (bit 0) and Tx (bit 2)
-        OUT SCC2681_CRA
+        ; --- Reset Mode Register Pointer ---
+        MVI  A, 00H
+        OUT  SCC2681_CRA             ; Reset MR pointer
+        ; --- MR1A: 8N1, No Parity, Rx interrupt on RxRDY ---
+        MVI  A, 13H                  ; 0001 0011: Rx enable, 8-bit, no parity, char mode
+        OUT  SCC2681_MR1A
+        ; --- MR2A: Normal mode, 1 stop bit, no RTS/CTS ---
+        MVI  A, 07H                  ; 0000 0111: Normal mode, no RTS/CTS, 1 stop bit
+        OUT  SCC2681_MR1A           ; MR2A follows MR1A automatically
+        ; --- ACR: Use BRG, standard baud rates ---
+        MVI  A, 80H                  ; BRG select = set 1 (bit 7), others = 0
+        OUT  SCC2681_ACR
+        ; --- Set Baud Rate to 9600 ---
+        MVI  A, 0BH                  ; 9600 baud for Tx and Rx (CSRA = 1011)
+        OUT  SCC2681_CSRA
+        ; --- Enable Tx and Rx ---
+        MVI  A, 05H                  ; CRA: Enable Tx (bit 2) and Rx (bit 0)
+        OUT  SCC2681_CRA
         
         ;Initialize 8259
         MVI  A, 0FFH					;ICW1 - LSB of IR0_VECT = 0xE0, level triggered, 4 byte intervals, one 8259, ICW4 needed

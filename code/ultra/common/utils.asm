@@ -3,11 +3,11 @@
 OUT_CHAR:
         PUSH PSW
 OUT_CHAR_WAIT:
-        IN  SCC2681_SRA
-        ANI TxRDY_MASK
-        JZ  OUT_CHAR_WAIT
-        POP PSW
-        OUT SCC2681_THRA        ; Transmit holding register (Channel A)
+        IN   SCC2681_SRA
+        ANI  TxRDY_MASK              ; Wait until TxRDY (bit 2) is set
+        JZ   OUT_CHAR_WAIT
+        POP  PSW
+        OUT  SCC2681_THRA           ; Write to Tx holding register
         RET
     
 DELAY:
