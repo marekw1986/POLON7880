@@ -84,8 +84,8 @@ MODE_5 				EQU 	0AH
 BCD 				EQU 	01H
 BIN 				EQU 	00H
 
-TxRDY_MASK   		EQU 	01H
-RxRDY_MASK			EQU		02H	
+TxRDY_MASK   		EQU 	04H
+RxRDY_MASK			EQU		01H	
 
 ; CF REGS
 CFBASE              EQU     030H
