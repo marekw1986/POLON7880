@@ -1,29 +1,3 @@
-;*************************************************************
-; 
-;                 TINY BASIC FOR INTEL 8080
-;                       VERSION 2.0
-;                     BY LI-CHEN WANG
-;                  MODIFIED AND TRANSLATED
-;                    TO INTEL MNEMONICS
-;                     BY ROGER RAUSKOLB
-;                      10 OCTOBER,1976
-;                        @COPYLEFT
-;                   ALL WRONGS RESERVED
-; 
-;*************************************************************
-; 
-; *** ZERO PAGE SUBROUTINES ***
-; 
-; THE 8080 INSTRUCTION SET LETS YOU HAVE 8 ROUTINES IN LOW
-; MEMORY THAT MAY BE CALLED BY RST N, N BEING 0 THROUGH 7.
-; THIS IS A ONE BYTE INSTRUCTION AND HAS THE SAME POWER AS
-; THE THREE BYTE INSTRUCTION CALL LLHH.  TINY BASIC WILL
-; USE RST 0 AS START AND RST 1 THROUGH RST 7 FOR
-; THE SEVEN MOST FREQUENTLY USED SUBROUTINES.
-; TWO OTHER SUBROUTINES (CRLF AND TSTNUM) ARE ALSO IN THIS
-; SECTION.  THEY CAN BE REACHED ONLY BY 3-BYTE CALLS.
-;
-
 IR_VECTORS_RAM EQU 0FFE0H
 STACK          EQU IR_VECTORS_RAM-1
 
