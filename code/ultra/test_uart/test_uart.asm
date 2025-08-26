@@ -22,15 +22,8 @@ START:  LXI  H,STACK
 		INCL "../common/hexdump.asm"
 
 INIT:
-        ;Set SYSTICK, RTCTICK and KBDDATA to 0x00
-        LXI  H, 0000H
-        SHLD SYSTICK
-        LXI  H, 0000H
-        SHLD RTCTICK
-        MVI A, 00H
-        STA  KBDDATA
         ; --- Reset Mode Register Pointer ---
-        MVI  A, 00H
+        MVI  A, 10H
         OUT  SCC2681_CRA             ; Reset MR pointer
         ; --- MR1A: 8N1, No Parity, Rx interrupt on RxRDY ---
         MVI  A, 13H                  ; 0001 0011: Rx enable, 8-bit, no parity, char mode
@@ -47,6 +40,7 @@ INIT:
         ; --- Enable Tx and Rx ---
         MVI  A, 05H                  ; CRA: Enable Tx (bit 2) and Rx (bit 0)
         OUT  SCC2681_CRA
+
         ;Initialize 8259
         MVI  A, 0FFH					;ICW1 - LSB of IR0_VECT = 0xE0, level triggered, 4 byte intervals, one 8259, ICW4 needed
         OUT  PIC_8259_LOW				;ICW1 is written to the low port of 8259
@@ -54,27 +48,24 @@ INIT:
         OUT	 PIC_8259_HIGH				;ICW2 is written to the high port of 8259
         MVI  A, 02H						;ICW4 - NOT special full nested mode, not buffored, master, automatic EOI, 8080 processor
         OUT  PIC_8259_HIGH				;ICW4 is written to the high port of 8259        
-        MVI  A, 0EFH					;OCW1 active TIMER; RTC, KBD and UART interrupts disabled
+        MVI  A, 0FFH					;OCW1 All interrupts disabled
         OUT  PIC_8259_HIGH				;OCW1 is written to the high port of 8259
         MVI  A, 80H						;OCW2 - Rotation of priorities, no explicit EOI
         OUT  PIC_8259_LOW				;OCW2 is written to the low port of 8259
 ;        MVI  A, 4BH				    ;OCW3 - ESMM SMM RESET SPECIAL MASK, NO POLL COMMAND, RR_RIS_READ_IS_REG
 ;        OUT  PIC_8259_LOW				;OCW3 is written to the low port of 8259
-        ;Initialize M6442B RTC
-;        MVI  A, 04H                     ;30 AJD = 0, IRQ FLAG = 1 (required), BUSY = 0(?), HOLD = 0
-;        OUT  RTC_CTRLD_REG
-;        MVI  A, 06H                     ;Innterrupt mode, STD.P enabled, 1 s.
-;        OUT  RTC_CTRLE_REG
-;        MVI  A, 04H                     ;TEST = 0, 24h mode, STOP = 0, RESET = 0
-;        OUT  RTC_CTRLF_REG
-		EI
+
+		DI
 		
 LOOP:
-		MVI C, 255
-		CALL DELAY
+		MVI A, 55H
+        CALL OUT_CHAR
+        
+        ;MVI C, 255
+		;CALL DELAY
 		
-		MVI A, 0FAH
-		CALL HEXDUMP_A
+		;MVI A, 0FAH
+		;CALL HEXDUMP_A
 		
 		JMP LOOP
 
@@ -138,12 +129,12 @@ RTC_ISR:
 ;Interrupt vectors
 		ORG  0FFE0H
 IR0_VECT:
-		JMP KBD_ISR
-        NOP
-        ;EI
-        ;RET
+		;JMP UART_TX_ISR
         ;NOP
-        ;NOP        
+        EI
+        RET
+        NOP
+        NOP
 IR1_VECT:
 		;JMP UART_TX_ISR
         ;NOP
@@ -159,10 +150,18 @@ IR2_VECT:
         NOP
         NOP
 IR3_VECT:
-		JMP RTC_ISR
+		;JMP UART_TX_ISR
+        ;NOP
+        EI
+        RET
+        NOP
         NOP
 IR4_VECT:
-		JMP TIMER_ISR
+		;JMP UART_TX_ISR
+        ;NOP
+        EI
+        RET
+        NOP
         NOP
 IR5_VECT:
         EI	

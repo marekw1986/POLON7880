@@ -27,7 +27,7 @@ INIT:   LXI  H, 0000H
         STA  KBDDATA
         
         ; --- Reset Mode Register Pointer ---
-        MVI  A, 00H
+        MVI  A, 10H
         OUT  SCC2681_CRA             ; Reset MR pointer
         ; --- MR1A: 8N1, No Parity, Rx interrupt on RxRDY ---
         MVI  A, 13H                  ; 0001 0011: Rx enable, 8-bit, no parity, char mode
