@@ -22,24 +22,34 @@ START:  LXI  H,STACK
 		INCL "../common/hexdump.asm"
 
 INIT:
-        ; --- Reset Mode Register Pointer ---
-        MVI  A, 10H
-        OUT  SCC2681_CRA             ; Reset MR pointer
-        ; --- MR1A: 8N1, No Parity, Rx interrupt on RxRDY ---
-        MVI  A, 13H                  ; 0001 0011: Rx enable, 8-bit, no parity, char mode
-        OUT  SCC2681_MR1A
-        ; --- MR2A: Normal mode, 1 stop bit, no RTS/CTS ---
-        MVI  A, 07H                  ; 0000 0111: Normal mode, no RTS/CTS, 1 stop bit
-        OUT  SCC2681_MR1A           ; MR2A follows MR1A automatically
-        ; --- ACR: Use BRG, standard baud rates ---
-        MVI  A, 80H                  ; BRG select = set 1 (bit 7), others = 0
-        OUT  SCC2681_ACR
-        ; --- Set Baud Rate to 9600 ---
-        MVI  A, 0BH                  ; 9600 baud for Tx and Rx (CSRA = 1011)
-        OUT  SCC2681_CSRA
-        ; --- Enable Tx and Rx ---
-        MVI  A, 05H                  ; CRA: Enable Tx (bit 2) and Rx (bit 0)
-        OUT  SCC2681_CRA
+        ; Reset receiver
+        MVI A, 20H
+        OUT SCC2681_CRA
+        ; Reset transmitter
+        MVI A, 30H
+        OUT SCC2681_CRA
+        ; Reset MR pointer
+        MVI A, 10H
+        OUT SCC2681_CRA
+
+        ; MR1A: 8-bit, no parity
+        MVI A, 13H
+        OUT SCC2681_MR1A
+        ; MR2A: 1 stop, no CTS
+        MVI A, 07H
+        OUT SCC2681_MR1A
+
+        ; ACR: BRG set 2
+        MVI A, 80H
+        OUT SCC2681_ACR
+
+        ; CSRA: 0xBB (9600) for RX and TX
+        MVI A, 0BBH
+        OUT SCC2681_CSRA
+
+        ; Enable TX and RX
+        MVI A, 05H
+        OUT SCC2681_CRA
 
         ;Initialize 8259
         MVI  A, 0FFH					;ICW1 - LSB of IR0_VECT = 0xE0, level triggered, 4 byte intervals, one 8259, ICW4 needed
@@ -61,8 +71,8 @@ LOOP:
 		MVI A, 55H
         CALL OUT_CHAR
         
-        ;MVI C, 255
-		;CALL DELAY
+        MVI C, 255
+		CALL DELAY
 		
 		;MVI A, 0FAH
 		;CALL HEXDUMP_A
@@ -202,7 +212,7 @@ KBDNEW	DS	 1							;Keyboard new data
 CURSOR  DS   2                          ;VDP cursor x position
 STKLMT: DS   1                          ;TOP LIMIT FOR STACK
         
-        ORG  0BFFFH
+        ORG  0FFD0H
 STACK:  DS   0                          ;STACK STARTS HERE
 ;
 

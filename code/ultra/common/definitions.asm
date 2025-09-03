@@ -84,6 +84,7 @@ BCD 				EQU 	01H
 BIN 				EQU 	00H
 
 TxRDY_MASK   		EQU 	04H
+TxEMT_MASK          EQU     08H
 RxRDY_MASK			EQU		01H	
 
 ; CF REGS
