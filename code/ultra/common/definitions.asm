@@ -18,7 +18,6 @@ SCC2681_IPCR        EQU     44H
 SCC2681_ISR         EQU     45H
 SCC2681_CTU         EQU     46H
 SCC2681_CTL         EQU     47H
-SCC2681_CTL         EQU     47H
 SCC2681_MR1B        EQU     48H
 SCC2681_MR2B        EQU     48H
 SCC2681_SRB         EQU     49H

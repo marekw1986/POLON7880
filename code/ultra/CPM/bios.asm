@@ -53,32 +53,34 @@ BIOS_BOOT_PROC:
 		LXI  H, BIOS_STACK
 		SPHL
         
-        ;Initialize 8253
-		MVI  A, 30H                     ;TIMER0 - systick
-		OUT  CONTR_W_8253               ;Timer 0, write LSB then MSB, mode 0, binary 
-		MVI  A, 00H                     ;LSB, interrupt every 20ms
-		OUT  COUNT_REG_0_8253
-		MVI  A, 0A0H                    ;MSB, interrupt every 20ms (0xF0 for 30 ms)
-		OUT  COUNT_REG_0_8253	
-		MVI  A, 0B6H                    ;TIMER2 - baudrate generator for 8251
-		OUT CONTR_W_8253                ;Timer 2, write LSB then MSB, mode 3, binary
-		MVI  A, 0DH                     ;LSB
-		OUT  COUNT_REG_2_8253
-		MVI  A, 00H                     ;MSB
-		OUT  COUNT_REG_2_8253          
-        ;Initialize 8251
-        MVI  A, 00H
-        OUT  UART_8251_CTRL
-        MVI  A, 00H
-        OUT  UART_8251_CTRL
-        MVI  A, 00H
-        OUT  UART_8251_CTRL
-        MVI  A, 40H						;Initiate UART reset
-        OUT  UART_8251_CTRL
-        MVI	 A, 4EH						;Mode: 8 data, 1 stop, x16
-        OUT	 UART_8251_CTRL
-        MVI	 A, 37H
-        OUT	 UART_8251_CTRL
+        ; Reset receiver
+        MVI A, 20H
+        OUT SCC2681_CRA
+        ; Reset transmitter
+        MVI A, 30H
+        OUT SCC2681_CRA
+        ; Reset MR pointer
+        MVI A, 10H
+        OUT SCC2681_CRA
+
+        ; MR1A: 8-bit, no parity
+        MVI A, 13H
+        OUT SCC2681_MR1A
+        ; MR2A: 1 stop, no CTS
+        MVI A, 07H
+        OUT SCC2681_MR1A
+
+        ; ACR: BRG set 2
+        MVI A, 80H
+        OUT SCC2681_ACR
+
+        ; CSRA: 0xBB (9600) for RX and TX
+        MVI A, 0BBH
+        OUT SCC2681_CSRA
+
+        ; Enable TX and RX
+        MVI A, 05H
+        OUT SCC2681_CRA
         
         XRA A
         LXI H, 0000H
@@ -264,7 +266,7 @@ GOCPM:
 		JMP CCP		;Go to the CP/M for further processing
 	
 BIOS_CONST_PROC:
-        IN   UART_8251_CTRL
+        IN   SCC2681_SRA
         NOP                             ;STATUS BIT FLIPPED?
         ANI  RxRDY_MASK                 ;MASK STATUS BIT
 		RET

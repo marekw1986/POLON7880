@@ -1,14 +1,15 @@
 ; Various utils
 
 OUT_CHAR:
-		PUSH PSW
-OUT_CHAR_WAIT:    
-		IN   UART_8251_CTRL             ;COME HERE TO DO OUTPUT
-        ANI  TxRDY_MASK                 ;STATUS BIT
-        JZ   OUT_CHAR_WAIT              ;NOT READY, WAIT
-        POP  PSW                        ;READY, GET OLD A BACK
-        OUT  UART_8251_DATA             ;AND SEND IT OUT
-		RET
+        PUSH PSW
+OUT_CHAR_WAIT:
+        IN   SCC2681_SRA
+        ;ANI  TxRDY_MASK              ; Wait until TxRDY (bit 2) is set
+        ANI  TxEMT_MASK              ; Wait until TxEMT (bit 3) is set
+        JZ   OUT_CHAR_WAIT
+        POP  PSW
+        OUT  SCC2681_THRA           ; Write to Tx holding register
+        RET
     
 MEMCOPY:
         MOV A, B                        ;Copy register B to register A

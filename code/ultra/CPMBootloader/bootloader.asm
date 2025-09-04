@@ -26,24 +26,34 @@ INIT:   LXI  H, 0000H
         MVI A, 00H
         STA  KBDDATA
         
-        ; --- Reset Mode Register Pointer ---
-        MVI  A, 10H
-        OUT  SCC2681_CRA             ; Reset MR pointer
-        ; --- MR1A: 8N1, No Parity, Rx interrupt on RxRDY ---
-        MVI  A, 13H                  ; 0001 0011: Rx enable, 8-bit, no parity, char mode
-        OUT  SCC2681_MR1A
-        ; --- MR2A: Normal mode, 1 stop bit, no RTS/CTS ---
-        MVI  A, 07H                  ; 0000 0111: Normal mode, no RTS/CTS, 1 stop bit
-        OUT  SCC2681_MR1A           ; MR2A follows MR1A automatically
-        ; --- ACR: Use BRG, standard baud rates ---
-        MVI  A, 80H                  ; BRG select = set 1 (bit 7), others = 0
-        OUT  SCC2681_ACR
-        ; --- Set Baud Rate to 9600 ---
-        MVI  A, 0BH                  ; 9600 baud for Tx and Rx (CSRA = 1011)
-        OUT  SCC2681_CSRA
-        ; --- Enable Tx and Rx ---
-        MVI  A, 05H                  ; CRA: Enable Tx (bit 2) and Rx (bit 0)
-        OUT  SCC2681_CRA
+        ; Reset receiver
+        MVI A, 20H
+        OUT SCC2681_CRA
+        ; Reset transmitter
+        MVI A, 30H
+        OUT SCC2681_CRA
+        ; Reset MR pointer
+        MVI A, 10H
+        OUT SCC2681_CRA
+
+        ; MR1A: 8-bit, no parity
+        MVI A, 13H
+        OUT SCC2681_MR1A
+        ; MR2A: 1 stop, no CTS
+        MVI A, 07H
+        OUT SCC2681_MR1A
+
+        ; ACR: BRG set 2
+        MVI A, 80H
+        OUT SCC2681_ACR
+
+        ; CSRA: 0xBB (9600) for RX and TX
+        MVI A, 0BBH
+        OUT SCC2681_CSRA
+
+        ; Enable TX and RX
+        MVI A, 05H
+        OUT SCC2681_CRA
         
         ;Initialize 8259
         MVI  A, 0FFH					;ICW1 - LSB of IR0_VECT = 0xE0, level triggered, 4 byte intervals, one 8259, ICW4 needed
@@ -52,12 +62,13 @@ INIT:   LXI  H, 0000H
         OUT	 PIC_8259_HIGH				;ICW2 is written to the high port of 8259
         MVI  A, 02H						;ICW4 - NOT special full nested mode, not buffored, master, automatic EOI, 8080 processor
         OUT  PIC_8259_HIGH				;ICW4 is written to the high port of 8259        
-        MVI  A, 0EFH					;OCW1 active TIMER; RTC, KBD and UART interrupts disabled
+        MVI  A, 0FFH					;OCW1 All interrupts disabled
         OUT  PIC_8259_HIGH				;OCW1 is written to the high port of 8259
         MVI  A, 80H						;OCW2 - Rotation of priorities, no explicit EOI
         OUT  PIC_8259_LOW				;OCW2 is written to the low port of 8259
 ;        MVI  A, 4BH				    ;OCW3 - ESMM SMM RESET SPECIAL MASK, NO POLL COMMAND, RR_RIS_READ_IS_REG
 ;        OUT  PIC_8259_LOW				;OCW3 is written to the low port of 8259
+
         ;Initialize M6442B RTC
 ;        MVI  A, 04H                     ;30 AJD = 0, IRQ FLAG = 1 (required), BUSY = 0(?), HOLD = 0
 ;        OUT  RTC_CTRLD_REG
@@ -187,9 +198,6 @@ JUMP_TO_CPM:
         CALL NEWLINE
         JMP BIOS_ADDR
         
-MSG1:   DB   'TINY '
-        DB   'BASIC'
-        DB   CR
 CFERRM: DB   'CF ERROR: '
         DB   CR
 STARTADDRSTR:
