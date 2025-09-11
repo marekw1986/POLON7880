@@ -70,12 +70,12 @@ CFRSECT:
 ; Destination address is BLKDAT     
 CFRSECT_WITH_CACHE:
 		LDA CFVAL						; Check if we have valid data in buffer
-		CPI 00H
+		ORA A
 		JZ	CFRSECT_WITH_CACHE_PERFORM  ; If not, read
 		LXI H, CFLBA3					; Check if old and new LBA values are equal
 		LXI D, PCFLBA3
 		CALL IS32BIT_EQUAL
-		CPI 00H							; If not, new LBA. Read imediately
+		ORA A							; If not, new LBA. Read imediately
 		JZ CFRSECT_WITH_CACHE_PERFORM
 		; We already have valid data in buffer. No need to read it again
 		XRA A						; Store 0 in A to signalize no err
@@ -90,7 +90,7 @@ CFRSECT_WITH_CACHE_PERFORM:
 		LXI	D, BLKDAT
 		CALL CFREAD
 		CALL CFCHERR
-		CPI 00H							; If A=0, no error, good read
+		ORA A							; If A=0, no error, good read
 		JNZ CFRSECT_WITH_CACHE_BAD
 		PUSH PSW
 		MVI A, 01H
