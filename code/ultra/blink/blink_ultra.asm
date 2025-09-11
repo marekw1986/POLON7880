@@ -19,7 +19,7 @@ START:  LXI  H,STACK
 		JMP INIT
 
 INIT:
-        MVI  A,00H
+        XOR A
         OUT  SCC2681_OPCR    ; configure OP0..OP7 as general outputs
 
 		DI
@@ -87,7 +87,7 @@ RTC_ISR:
 		PUSH PSW						;Save condition bits and accumulator
         PUSH H
         PUSH D
-        MVI A, 00H                      ;Clear the RTC interrupt flag to change state of the line
+        XOR A                      ;Clear the RTC interrupt flag to change state of the line
         OUT RTC_CTRLD_REG
         LHLD RTCTICK                    ;Load RTCTICK variable to HL
         INX H                           ;Increment HL

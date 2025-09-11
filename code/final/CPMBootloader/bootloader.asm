@@ -20,12 +20,12 @@ INIT:   LXI  H, 0000H
         SHLD SYSTICK
         LXI  H, 0000H
         SHLD RTCTICK
-        MVI A, 00H
+        XOR A
         STA  KBDDATA
         ;Initialize 8253
 		MVI  A, 30H                     ;TIMER0 - systick
 		OUT  CONTR_W_8253               ;Timer 0, write LSB then MSB, mode 0, binary 
-		MVI  A, 00H                     ;LSB, interrupt every 20ms
+		XOR A                     ;LSB, interrupt every 20ms
 		OUT  COUNT_REG_0_8253
 		MVI  A, 0A0H                    ;MSB, interrupt every 20ms (0xF0 for 30 ms)
 		OUT  COUNT_REG_0_8253	
@@ -33,14 +33,14 @@ INIT:   LXI  H, 0000H
 		OUT CONTR_W_8253                ;Timer 2, write LSB then MSB, mode 3, binary
 		MVI  A, 0DH                     ;LSB
 		OUT  COUNT_REG_2_8253
-		MVI  A, 00H                     ;MSB
+		XOR A                     ;MSB
 		OUT  COUNT_REG_2_8253          
         ;Initialize 8251
-        MVI  A, 00H
+        XOR A
         OUT  UART_8251_CTRL
-        MVI  A, 00H
+        XOR A
         OUT  UART_8251_CTRL
-        MVI  A, 00H
+        XOR A
         OUT  UART_8251_CTRL
         MVI  A, 40H						;Initiate UART reset
         OUT  UART_8251_CTRL
@@ -294,7 +294,7 @@ TIMER_ISR:
         LHLD SYSTICK                    ;Load SYSTICK variable to HL
         INX H                           ;Increment HL
         SHLD SYSTICK                    ;Save HL in SYSTICK variable
- 	 	MVI  A, 00H                     ;Reload. LSB, interrupt every 20ms
+ 	 	XOR A                     ;Reload. LSB, interrupt every 20ms
   		OUT  COUNT_REG_0_8253
   		MVI  A, 0A0H                    ;Reload. MSB, interrupt every 20ms (0xF0 for 30 ms)
   		OUT  COUNT_REG_0_8253                
@@ -308,7 +308,7 @@ RTC_ISR:
 		PUSH PSW						;Save condition bits and accumulator
         PUSH H
         PUSH D
-        MVI A, 00H                      ;Clear the RTC interrupt flag to change state of the line
+        XOR A                      ;Clear the RTC interrupt flag to change state of the line
         OUT RTC_CTRLD_REG
         LHLD RTCTICK                    ;Load RTCTICK variable to HL
         INX H                           ;Increment HL

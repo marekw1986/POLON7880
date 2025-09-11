@@ -1,11 +1,11 @@
 CFINIT:
-		MVI A, 00H
+		XOR A
 		STA	CFLBA3
-		MVI A, 00H
+		XOR A
 		STA	CFLBA2
-		MVI A, 00H
+		XOR A
 		STA	CFLBA1
-		MVI A, 00H
+		XOR A
 		STA	CFLBA0
         MVI A, 04H
         OUT CFREG7
@@ -43,7 +43,7 @@ CFWAIT_TMOUT_LOOP_INT:
         JZ CFWAIT_TMOUT_NOK
         JMP CFWAIT_TMOUT_LOOP_EXT
 CFWAIT_TMOUT_OK:
-        MVI A, 00H						;OK result
+        XOR A						;OK result
         RET
 CFWAIT_TMOUT_NOK:
 		MVI A, 01H						;CF card timeout
@@ -56,7 +56,7 @@ CFCHERR:
         IN	CFREG1
 		RET
 CFNERR:
-		MVI A, 00H
+		XOR A
         RET    
             
 CFREAD:
@@ -97,7 +97,7 @@ CFSLBA:
         RET
         
 CFGETMBR:
-		MVI A, 00H
+		XOR A
 		OUT CFREG3						;LBA 0
 		OUT CFREG4						;LBA 1
 		OUT CFREG5						;LBA 2

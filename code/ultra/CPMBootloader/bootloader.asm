@@ -23,7 +23,7 @@ INIT:   LXI  H, 0000H
         SHLD SYSTICK
         LXI  H, 0000H
         SHLD RTCTICK
-        MVI A, 00H
+        XOR A
         STA  KBDDATA
         
         ; Reset receiver
@@ -298,7 +298,7 @@ RTC_ISR:
 		PUSH PSW						;Save condition bits and accumulator
         PUSH H
         PUSH D
-        MVI A, 00H                      ;Clear the RTC interrupt flag to change state of the line
+        XOR A                      ;Clear the RTC interrupt flag to change state of the line
         OUT RTC_CTRLD_REG
         LHLD RTCTICK                    ;Load RTCTICK variable to HL
         INX H                           ;Increment HL
