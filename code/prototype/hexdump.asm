@@ -2,7 +2,7 @@
 ;Beginning in DE
 HEXDUMP:
 	MOV A, B
-	OR A
+	CPI 00H
 	RZ
 	LDAX D				;Get byte
 	CALL HEXDUMP_A		;Print current byte as hex value
@@ -63,7 +63,7 @@ HEXDUMP32BITVAL_PLUS_SPACE:
 ;Beginning in DE
 HEXDUMP_RS232:
 	MOV A, B
-	OR A
+	CPI 00H
 	RZ
 	LDAX D						;Get byte
 	CALL HEXDUMP_A_RS232		;Print current byte as hex value

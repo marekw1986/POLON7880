@@ -58,7 +58,7 @@ PUTS_LOOP:
 		MOV D, H
 		MOV E, L
 		LDAX D
-		OR A
+		CPI 00H
 		RZ					; If a is zero, return
 		CALL OUT_CHAR
 		INX H
@@ -67,19 +67,19 @@ PUTS_LOOP:
 ; Checks if 32 variable pointed by DL is zero		
 ISZERO32BIT:
 		LDAX D
-		OR A
+		CPI 00H
 		RNZ
 		INX D
 		LDAX D
-		OR A
+		CPI 00H
 		RNZ
 		INX D
 		LDAX D
-		OR A
+		CPI 00H
 		RNZ
 		INX D
 		LDAX D
-		OR A
+		CPI 00H
 		RET
 		
 ; CRC-16/ARC for 8080/Z80

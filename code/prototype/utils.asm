@@ -101,12 +101,12 @@ PRN_ZERO_EX:
 ;PRINTS STRING POINTED BY DE AND TERMINATED WITH CR OR NULL
 ;MAX NUMBER OF CHARACTERS IN B         
 PRNSTR:	MOV A, B
-		OR A
+		CPI 00H
 		RZ
 		LDAX D							;GET A CHARACTER
 		CPI CR
 		RZ
-		OR A
+		CPI 00H
 		RZ
 		CALL OUT_CHAR
 		INX D							
@@ -116,7 +116,7 @@ PRNSTR:	MOV A, B
 ;SAWPS PAIR IN STRING POINTED BY DE UNTIL B REACH 0
 ;B IS NUMBER OF PAIRS!!!
 SWPSTR: MOV A, B
-		OR A
+		CPI 00H
 		RZ
 		LDAX D
 		MOV H, A
@@ -151,7 +151,7 @@ PUTS_LOOP:
 		MOV D, H
 		MOV E, L
 		LDAX D
-		OR A
+		CPI 00H
 		RZ					; If a is zero, return
 		CALL OUT_CHAR
 		INX H
@@ -175,7 +175,7 @@ PUTS_RS232_LOOP:
 		MOV D, H
 		MOV E, L
 		LDAX D
-		OR A
+		CPI 00H
 		RZ					; If a is zero, return
 		CALL OUT_CHAR_RS232
 		INX H
@@ -185,19 +185,19 @@ PUTS_RS232_LOOP:
 ; Checks if 32 variable pointed by DL is zero		
 ISZERO32BIT:
 		LDAX D
-		OR A
+		CPI 00H
 		RNZ
 		INX D
 		LDAX D
-		OR A
+		CPI 00H
 		RNZ
 		INX D
 		LDAX D
-		OR A
+		CPI 00H
 		RNZ
 		INX D
 		LDAX D
-		OR A
+		CPI 00H
 		RET
 		
 ; CRC-16/ARC for 8080/Z80

@@ -78,7 +78,7 @@ INIT:
 TRYKBINIT:
         CALL KBDINIT                        ;Call init routine
         MOV A, B							;Move result of operation to A
-        OR A								;Check if OK
+        CPI 00H								;Check if OK
         JNZ TRYKBINIT						;Retry if not ok. TODO add limit of retries
 		EI
 		
@@ -90,7 +90,7 @@ LOOP:
 		POP H
 		POP D
 		POP B
-		OR A
+		CPI 00H
 		JZ LOOP
 		CALL OUT_CHAR
 		JMP LOOP

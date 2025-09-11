@@ -109,10 +109,10 @@ VDPPUTC:
 		CPI 08H							;Check if it is BACKSPACE
 		JNZ VDPPUTC_CHLF				;It is not. Check for next special character
 		LDA CURSOR
-		OR A
+		CPI 00H
 		JNZ VDPPUTC_BSDEC				;It is not zero. We can decrement.
 		LDA CURSOR+1
-		OR A
+		CPI 00H
 		JNZ VDPPUTC_BSDEC				;It is not zero. We can decrement.
 		RET								;It is zero. Just return
 VDPPUTC_BSDEC		

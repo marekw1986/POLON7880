@@ -17,7 +17,7 @@ CFINIT:
         MVI A, 0EFH		                ;SET FEATURE COMMAND
         OUT CFREG7
         CALL CFWAIT_TMOUT
-        OR A							;Check if wait loop timeouted
+        CPI 00H							;Check if wait loop timeouted
         JNZ CFINIT_RET					;If so there is no point in checking error code
         CALL CFCHERR
 CFINIT_RET

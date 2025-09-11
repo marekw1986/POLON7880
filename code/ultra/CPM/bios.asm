@@ -94,7 +94,7 @@ ZERO_LOOP:
         ORA C
         JNZ ZERO_LOOP
         CALL CFGETMBR
-        OR A                     ; Check if MBR loaded properly
+        CPI 00H                     ; Check if MBR loaded properly
         JZ LD_PART_TABLE
         CALL IPUTS
         DB 'MBR load err. Reset required.'
@@ -459,7 +459,7 @@ BIOS_READ_PROC:
 		PUSH B				; Now save remaining registers
 		PUSH D
         CALL CALC_CFLBA_FROM_PART_ADR
-        OR A                            ; If 0 in A, no valid LBA calculated
+        CPI 00H                            ; If 0 in A, no valid LBA calculated
         JZ BIOS_READ_PROC_RET_ERR          ; In that case return and report error
 		CALL CFRSECT_WITH_CACHE
 	IF DEBUG > 0
@@ -474,7 +474,7 @@ BIOS_READ_PROC:
 		POP PSW
 	ENDIF
 		; If no error there should be 0 in A
-		OR A
+		CPI 00H
 		JZ BIOS_READ_PROC_GET_SECT		; No error, just read sector. Otherwise report error and return.
         JMP BIOS_READ_PROC_RET_ERR		; Return
 BIOS_READ_PROC_GET_SECT:
@@ -577,7 +577,7 @@ BIOS_WRITE_PROC:
         JZ BIOS_WRITE_NEW_TRACK
 		; First read sector to have complete data in buffer
 		CALL CFRSECT_WITH_CACHE
-		OR A
+		CPI 00H
 		JNZ BIOS_WRITE_RET_ERR			; If we ae unable to read sector, it ends here. We would risk FS crash otherwise.
 		CALL BIOS_CALC_SECT_IN_BUFFER
 		; Now DE contains the 16-bit result of multiplying the original value by 128
@@ -616,11 +616,11 @@ BIOS_WRITE_PERFORM:
 		CALL MEMCOPY
 		; Buffer is updated with new sector data. Perform write.
         CALL CALC_CFLBA_FROM_PART_ADR
-        OR A         ; If A=0, no valid LBA calculated
+        CPI 00H         ; If A=0, no valid LBA calculated
         JZ BIOS_WRITE_RET_ERR ; Return and report error
 		LXI D, BLKDAT
 		CALL CFWSECT
-		OR A			; Check result
+		CPI 00H			; Check result
 		JNZ BIOS_WRITE_RET_ERR
 		JMP BIOS_WRITE_RET_OK				
 BIOS_WRITE_RET_ERR:
@@ -785,7 +785,7 @@ CALC_CFLBA_FROM_PART_ADR:
         LXI H, PARTADDR
         LDA DISK_DISK
 CALC_CFLBA_LOOP_START
-        OR A
+        CPI 00H
         JZ CALC_CFLBA_LOOP_END
         DCR A
         INX H

@@ -1596,7 +1596,7 @@ INIT:   STA  OCSW
 TRYKBINIT:
         CALL KBDINIT                        ;Call init routine
         MOV A, B							;Move result of operation to A
-        OR A								;Check if OK
+        CPI 00H								;Check if OK
         JNZ TRYKBINIT						;Retry if not ok. TODO add limit of retries
         ;MOV L, B                            ;Check and print result code
         ;MVI H, 00H
@@ -1611,7 +1611,7 @@ TRYKBINIT:
 		DB 'CF CARD: '
 		DB 00H
 		CALL CFINIT
-		OR A								; Check if CF_WAIT during initialization timeouted
+		CPI 00H								; Check if CF_WAIT during initialization timeouted
 		JZ GET_CFINFO
 		CALL IPUTS
 		DB 'missing'
@@ -1662,15 +1662,15 @@ CHECK_PARTITION1_SIZE:
 		JNC PRINT_BOOT_OPTIONS		; It is bigger
 		INX D
 		LDAX D
-		OR A
+		CPI 00H
 		JNZ PRINT_BOOT_OPTIONS
 		INX D
 		LDAX D
-		OR A
+		CPI 00H
 		JNZ PRINT_BOOT_OPTIONS
 		INX D
 		LDAX D
-		OR A
+		CPI 00H
 		JNZ PRINT_BOOT_OPTIONS
 		CALL IPUTS
 		DB 'ERROR: partition 1 < 16kB'
@@ -1702,7 +1702,7 @@ BOOT_MODE_INPUT:
 		POP H
 		POP D
 		POP B
-		OR A
+		CPI  00H
 		JZ BOOT_MODE_INPUT
         ANI  7FH  		; MASK BIT 7 OFF
         CPI 49			; Is it 1?
@@ -1714,7 +1714,7 @@ BOOT_MODE_INPUT:
 BOOT_CPM:
 		DI
         CALL LOAD_PARTITION1
-        OR A
+        CPI 00H
         JZ JUMP_TO_CPM
         CALL IPUTS
         DB 'CP/M load error. Reset.'
@@ -1787,7 +1787,7 @@ CHKIO:	PUSH B
 		POP H
 		POP D
 		POP B
-		OR A
+		CPI  00H
 		RZ
         ANI  7FH                        ;MASK BIT 7 OFF
         CPI  0FH                        ;IS IT CONTROL-O?

@@ -88,7 +88,7 @@ INIT:   LXI  H, 0000H
 		DB 'CF CARD: '
 		DB 00H
 		CALL CFINIT
-		OR A								; Check if CF_WAIT during initialization timeouted
+		CPI 00H								; Check if CF_WAIT during initialization timeouted
 		JZ GET_CFINFO
 		CALL IPUTS
 		DB 'missing'
@@ -157,15 +157,15 @@ CHECK_PARTITION1_SIZE:
 		JNC BOOT_CPM ;PRINT_BOOT_OPTIONS		; It is bigger
 		INX D
 		LDAX D
-		OR A
+		CPI 00H
 		JNZ BOOT_CPM ;PRINT_BOOT_OPTIONS
 		INX D
 		LDAX D
-		OR A
+		CPI 00H
 		JNZ BOOT_CPM ;PRINT_BOOT_OPTIONS
 		INX D
 		LDAX D
-		OR A
+		CPI 00H
 		JNZ BOOT_CPM ;PRINT_BOOT_OPTIONS
 		CALL IPUTS
 		DB 'ERROR: partition 1 < 16kB'
@@ -176,7 +176,7 @@ CHECK_PARTITION1_SIZE:
 BOOT_CPM:
 		DI
         CALL LOAD_PARTITION1
-        OR A
+        CPI 00H
         JZ JUMP_TO_CPM
         CALL IPUTS
         DB 'CP/M load error. Reset.'
