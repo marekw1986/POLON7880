@@ -55,7 +55,7 @@ BIOS_BOOT_PROC:
         ;Initialize 8253
 		MVI  A, 30H                     ;TIMER0 - systick
 		OUT  CONTR_W_8253               ;Timer 0, write LSB then MSB, mode 0, binary 
-		MVI  A, 00H                     ;LSB, interrupt every 20ms
+		XRA A                     ;LSB, interrupt every 20ms
 		OUT  COUNT_REG_0_8253
 		MVI  A, 0A0H                    ;MSB, interrupt every 20ms (0xF0 for 30 ms)
 		OUT  COUNT_REG_0_8253	
@@ -63,14 +63,14 @@ BIOS_BOOT_PROC:
 		OUT CONTR_W_8253                ;Timer 2, write LSB then MSB, mode 3, binary
 		MVI  A, 0DH                     ;LSB
 		OUT  COUNT_REG_2_8253
-		MVI  A, 00H                     ;MSB
+		XRA A                     ;MSB
 		OUT  COUNT_REG_2_8253          
         ;Initialize 8251
-        MVI  A, 00H
+        XRA A
         OUT  UART_8251_CTRL
-        MVI  A, 00H
+        XRA A
         OUT  UART_8251_CTRL
-        MVI  A, 00H
+        XRA A
         OUT  UART_8251_CTRL
         MVI  A, 40H						;Initiate UART reset
         OUT  UART_8251_CTRL
@@ -83,7 +83,7 @@ BIOS_BOOT_PROC:
         LXI H, 0000H
         LXI B, CCP
 ZERO_LOOP:
-        MVI A, 00H
+        XRA A
         MOV M, A
         INX H
         DCX B
@@ -100,7 +100,7 @@ ZERO_LOOP:
 LD_PART_TABLE:
         CALL CFLDPARTADDR
 CFVAR_INIT:
-		MVI A, 00H
+		XRA A
 		STA	CFLBA3
 		STA	CFLBA2
 		STA	CFLBA1
@@ -232,7 +232,7 @@ BIOS_WBOOT_SEC_OK:
 		POP H
 		INX B
 		CALL BIOS_SETTRK
-		MVI A, 00H 			; sett A=0 for first sector on new track
+		XRA A 			; sett A=0 for first sector on new track
 BIOS_WBOOT_SEC:
 		MVI B, 00H
 		MOV C, A
@@ -621,7 +621,7 @@ BIOS_WRITE_PERFORM:
 		JNZ BIOS_WRITE_RET_ERR
 		JMP BIOS_WRITE_RET_OK				
 BIOS_WRITE_RET_ERR:
-        MVI A, 00H
+        XRA A
         STA CFVAL
 		MVI A, 1
 		JMP BIOS_WRITE_RET
@@ -832,7 +832,7 @@ CALC_CFLBA_LOOP_END:
         MVI A, 01H
         RET
 CALC_CFLBA_RET_ERR
-        MVI A, 00H
+        XRA A
         RET
 		
 	IF DEBUG > 0

@@ -1,8 +1,8 @@
 VDPINIT:
-        MVI A, 00H
+        XRA A
         STA CURSOR                      ;Set CURSOR to 0
         STA CURSOR+1                    
-        MVI A, 00H                      ;REG0 (TEXT MODE, NO EXTERNAL VIDEO)
+        XRA A                      ;REG0 (TEXT MODE, NO EXTERNAL VIDEO)
         OUT VDP_MODE
         MVI A, 80H                      ;SELECT REG0
         OUT VDP_MODE
@@ -17,7 +17,7 @@ VDPINIT:
         MVI A, 82H                      ;SELECT REG2
         OUT VDP_MODE
  
-        MVI A, 00H                      ;REG4 (ADDRESS OF PATTERN TABLE IN VRAM = 0x0000)
+        XRA A                      ;REG4 (ADDRESS OF PATTERN TABLE IN VRAM = 0x0000)
         OUT VDP_MODE
         MVI A, 84H                      ;SELECT REG4
         OUT VDP_MODE
@@ -69,7 +69,7 @@ VDPZEROVRAM:
         NOP
         NOP
 VDPZEROVRAML:
-        MVI A, 00H
+        XRA A
         OUT VDP_DATA
         NOP
         NOP

@@ -80,7 +80,7 @@ KBDCRTLSET:
         MVI A, 09H					;Interrupts enabled, system flag set, first port clock enabled
 		OUT KBD_DATA				;second port clock disabled, first port translation disabled
         ;9. Zero out buffer        
-        MVI A, 00H                  
+        XRA A                  
         STA KBDDATA					;Zero KBDDATA
         STA KBDKRFL					;Zero key release flag
         STA KBDSFFL					;Zero shift flag
@@ -137,7 +137,7 @@ KBD2A_SVNEWDATA:
         NOP							;If not, handle error here.
         NOP							;These are just a placeholders
 KBD2A_CLRKRFL:
-		MVI A, 00H
+		XRA A
 		STA KBDKRFL
 		JMP KBD2A_CLRDATA_RETURN
 KBD2A_CHKCTRLFLSET:
@@ -161,7 +161,7 @@ KBD2A_LOOKUP:
 		CPI 00H						;Check if it returned zero (this is needed)
 		JZ KBD2A_CLRDATA_RETURN		;If yes, clear data and return
 		MOV B, A					;Else clear KBDDATA and return
-		MVI A, 00H					;Passing ASCII character in A
+		XRA A					;Passing ASCII character in A
 		STA KBDDATA
 		MOV A, B
 		RET
@@ -180,12 +180,12 @@ KBD2A_CHKKRSETSF:
 		STA KBDSFFL
 		JMP KBD2A_CLRDATA_RETURN    ;Clear KBDDATA and return        
 KBD2A_CLRFLDATA_RETURN:
-		MVI A, 00H
+		XRA A
 		STA KBDSFFL
         STA KBDCTRLFL
 		STA KBDKRFL
 KBD2A_CLRDATA_RETURN:
-        MVI A, 00H
+        XRA A
 		STA KBDDATA		
 		RET
 		
@@ -212,7 +212,7 @@ KBDSCANTABLE_LOOP:
 		CMP C							;Compare A with C
 KBDSCANTABLE_REL:
 		JC KBDSCANTABLE_LOOP
-		MVI A, 00H                     	;End of the loop, return zero
+		XRA A                     	;End of the loop, return zero
 		RET
 KBDSCANTABLE_FOUND:
 		DAD D							;Add DE to HL
