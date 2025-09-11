@@ -2,7 +2,7 @@
 ;Beginning in DE
 HEXDUMP:
 	MOV A, B
-	CPI 00H
+	OR A
 	RZ
 	LDAX D				;Get byte
 	CALL HEXDUMP_A		;Print current byte as hex value

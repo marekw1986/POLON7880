@@ -54,7 +54,7 @@ KBDCRTLSET:
         CPI 04H                     ;Check if it is KBD DATA stuck high error
         MVI B, 05H                  ;Return result code if it is
         RZ                         
-        CPI 00H                     ;Is it 0x00? Did it pass the test?
+        OR A                     ;Is it 0x00? Did it pass the test?
         MVI B, 06H					;Return result code if not
         RNZ                          ;No? Return then
         ;6. Enable Devices
@@ -105,7 +105,7 @@ KBDWAITOUTBUF:
 		
 KBD2ASCII:
 		LDA KBDDATA					;Load latest received PS/2 scancode
-		CPI 00H						;Is it 0? (this is needed - LDA doesn't affect flags)
+		OR A						;Is it 0? (this is needed - LDA doesn't affect flags)
 		RZ							;Return if code = 0;
 		CPI 0F0H					;Is it 0xF0 (key release)?
 		JNZ KBD2A_CHKSFT			;If not, go to the next stage
@@ -142,12 +142,12 @@ KBD2A_CHKSHFFLSET:
 		LDA KBDNEW					;Put newest key scancode in A
 		MOV B, A					;Then move it to B
 		LDA KBDSFFL					;Check shift flag
-		CPI 00H                     ;This is needed - LDA doesn't affect zero flag
+		OR A                     ;This is needed - LDA doesn't affect zero flag
 		JZ KBD2A_LOOKUP				;Just search in LC table
 		MVI L, 02H					;We are looking in UC table if shift flag is set
 KBD2A_LOOKUP		
 		CALL KBDSCANTABLE			;Call scantable searching subroutine
-		CPI 00H						;Check if it returned zero (this is needed)
+		OR A						;Check if it returned zero (this is needed)
 		JZ KBD2A_CLRDATA_RETURN		;If yes, clear data and return
 		MOV B, A					;Else clear KBDDATA and return
 		XOR A					;Passing ASCII character in A
