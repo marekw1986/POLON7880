@@ -86,7 +86,7 @@ BIOS_BOOT_PROC:
         LXI H, 0000H
         LXI B, CCP
 ZERO_LOOP:
-        XOR A
+        MVI A, 00H
         MOV M, A
         INX H
         DCX B
@@ -103,7 +103,7 @@ ZERO_LOOP:
 LD_PART_TABLE:
         CALL CFLDPARTADDR
 CFVAR_INIT:
-		XOR A
+		MVI A, 00H
 		STA	CFLBA3
 		STA	CFLBA2
 		STA	CFLBA1
@@ -235,7 +235,7 @@ BIOS_WBOOT_SEC_OK:
 		POP H
 		INX B
 		CALL BIOS_SETTRK
-		XOR A 			; sett A=0 for first sector on new track
+		MVI A, 00H 			; sett A=0 for first sector on new track
 BIOS_WBOOT_SEC:
 		MVI B, 00H
 		MOV C, A
@@ -624,7 +624,7 @@ BIOS_WRITE_PERFORM:
 		JNZ BIOS_WRITE_RET_ERR
 		JMP BIOS_WRITE_RET_OK				
 BIOS_WRITE_RET_ERR:
-        XOR A
+        MVI A, 00H
         STA CFVAL
 		MVI A, 1
 		JMP BIOS_WRITE_RET
@@ -835,7 +835,7 @@ CALC_CFLBA_LOOP_END:
         MVI A, 01H
         RET
 CALC_CFLBA_RET_ERR
-        XOR A
+        MVI A, 00H
         RET
 		
 	IF DEBUG > 0

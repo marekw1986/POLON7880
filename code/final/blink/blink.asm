@@ -35,7 +35,7 @@ INIT:
 		OUT CONTR_W_8253                ;Timer 2, write LSB then MSB, mode 3, binary
 		MVI  A, 13H                     ;LSB
 		OUT  COUNT_REG_2_8253
-		XOR A                     ;MSB
+		MVI  A, 00H                     ;MSB
 		OUT  COUNT_REG_2_8253          
         ;Initialize 8251
         MVI	 A, 4EH

@@ -18,7 +18,7 @@ VDPZEROVRAM:
         NOP
         NOP
 VDPZEROVRAML:
-        XOR A
+        MVI A, 00H
         OUT VDP_DATA
         NOP
         NOP

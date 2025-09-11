@@ -125,7 +125,7 @@ RTC_ISR:
 		PUSH PSW						;Save condition bits and accumulator
         PUSH H
         PUSH D
-        XOR A                      ;Clear the RTC interrupt flag to change state of the line
+        MVI A, 00H                      ;Clear the RTC interrupt flag to change state of the line
         OUT RTC_CTRLD_REG
         LHLD RTCTICK                    ;Load RTCTICK variable to HL
         INX H                           ;Increment HL
