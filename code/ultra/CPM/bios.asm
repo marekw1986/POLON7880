@@ -533,6 +533,7 @@ BIOS_READ_PROC_GET_SECT:
 		MVI A, CR
 		CALL OUT_CHAR
 	ENDIF
+        JMP BIOS_READ_PROC_RET_OK
 BIOS_READ_PROC_RET_ERR
         MVI A, 1
         JMP BIOS_READ_PROC_RET
@@ -544,7 +545,6 @@ BIOS_READ_PROC_RET
 		LHLD ORIGINAL_SP; Restore original stack
 		SPHL
 		POP H			; Restore original content of HL
-		MVI A, 0
 		RET
 		  
 BIOS_WRITE_PROC:
