@@ -538,7 +538,7 @@ BIOS_READ_PROC_RET_ERR
         MVI A, 1
         JMP BIOS_READ_PROC_RET
 BIOS_READ_PROC_RET_OK    
-        MVI A, 0
+        XRA A			; A = 0
 BIOS_READ_PROC_RET
 		POP D
 		POP B
@@ -632,7 +632,7 @@ BIOS_WRITE_RET_OK:
         MVI A, 01H
         STA CFVAL
         CALL CFUPDPLBA
-		MVI A, 0
+		XRA A			; A = 0
 BIOS_WRITE_RET:
 		POP D
 		POP B	
@@ -642,7 +642,7 @@ BIOS_WRITE_RET:
 		RET
 		 
 BIOS_PRSTAT_PROC:
-		MVI A, 0 ;Printer is never ready
+		XRA A ; A = 0, Printer is never ready
 		RET
 		
 BIOS_SECTRN_PROC:

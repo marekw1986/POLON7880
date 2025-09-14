@@ -204,7 +204,7 @@ IS32BIT_EQUAL_LOOP:
     JNZ IS32BIT_EQUAL_LOOP  ; Repeat until all bytes are checked
     RET             		; Return with A = 1 (equal)
 IS32BIT_NOT_EQUAL:
-    MVI A, 0        		; Set A = 0 (not equal)
+    XRA A        			; Set A = 0 (not equal)
     RET             		; Return
 
 ;THIS IS JUSY ENDLESS LOOP. Go here if something is wrong.		
