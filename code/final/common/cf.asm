@@ -1,11 +1,8 @@
 CFINIT:
 		XRA A
 		STA	CFLBA3
-		XRA A
 		STA	CFLBA2
-		XRA A
 		STA	CFLBA1
-		XRA A
 		STA	CFLBA0
         MVI A, 04H
         OUT CFREG7
