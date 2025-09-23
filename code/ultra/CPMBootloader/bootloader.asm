@@ -14,7 +14,7 @@ START:
 ;
 
 		INCL "../common/cf.asm"
-		INCL "keyboard.asm"
+		;INCL "keyboard.asm"
 		INCL "../common/utils.asm"
 		INCL "../common/hexdump.asm"
 
@@ -197,18 +197,9 @@ JUMP_TO_CPM:
         DB 00H
         CALL NEWLINE
         JMP BIOS_ADDR
-        
-CFERRM: DB   'CF ERROR: '
-        DB   CR
-STARTADDRSTR:
-		DB	 'Addr: '
-		DB	 CR
-SIZESTR:
-		DB	 'Size: '
-		DB	 CR
 
-		INCL "fonts1.asm"
-		INCL "ps2_scancodes.asm"
+		;INCL "fonts1.asm"
+		;INCL "ps2_scancodes.asm"
         
 ;Interrupt vectors defined in rom
 IR_VECTORS_ROM:
