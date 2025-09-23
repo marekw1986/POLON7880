@@ -269,11 +269,11 @@ BIOS_CONST_PROC:
 		RET
 	
 BIOS_CONIN_PROC:
-		IN   UART_8251_CTRL             ;COME HERE TO DO OUTPUT
-        ANI  TxRDY_MASK                 ;STATUS BIT
-        JZ   OUT_CHAR_WAIT              ;NOT READY, WAIT
-        POP  PSW                        ;READY, GET OLD A BACK
-        IN   UART_8251_DATA             ;AND SEND IT OUT
+        IN   UART_8251_CTRL
+        NOP
+        ANI  RxRDY_MASK
+        JZ BIOS_CONIN_PROC
+        IN   UART_8251_DATA
 		RET
 	
 BIOS_CONOUT_PROC:
