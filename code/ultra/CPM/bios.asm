@@ -113,6 +113,7 @@ CFVAR_INIT:
 		STA PCFLBA1
 		STA PCFLBA0
 		STA CFVAL
+        STA DEFERREDWR
 	IF DEBUG > 0
 	    PUSH PSW
         PUSH B
@@ -169,6 +170,14 @@ BIOS_WBOOT_PROC:
 		; But we CAN set to use other areas that we KNOW are not currently in use!
 		LXI  H, BIOS_WBOOT_STACK		; 
 		SPHL
+        CALL CFFLUSHDEFFERED
+        ORA A
+        JZ BIOS_WBOOT_FLUSH_OK
+        CALL IPUTS
+        DB 'WARNING: deferred write flush failed on warm boot.'
+        DB CR
+        DB 00H
+BIOS_WBOOT_FLUSH_OK:
 	IF DEBUG > 0
 	    PUSH PSW
         PUSH B
