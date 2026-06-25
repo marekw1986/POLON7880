@@ -167,23 +167,28 @@ KBD2A_LOOKUP:
 		RET
 KBD2A_CHKKRSETCTRL:
 		LDA KBDKRFL
-		CPI 01H						;Check if key release flag is set
-		JZ KBD2A_CLRFLDATA_RETURN	;If yes clear flags (and data?) and return
-		MVI A, 01H					;If not, set ctrl flag
+		CPI 01H                     ;Check if key release flag is set
+		JNZ KBD2A_SETCTRL           ;Not a release, go set the flag
+		XRA A                       ;Release: clear only ctrl flag
 		STA KBDCTRLFL
-		JMP KBD2A_CLRDATA_RETURN    ;Clear KBDDATA and return    
-KBD2A_CHKKRSETSF:        
+		STA KBDKRFL                 ;Clear release flag too
+		JMP KBD2A_CLRDATA_RETURN
+KBD2A_SETCTRL:
+		MVI A, 01H
+		STA KBDCTRLFL
+		JMP KBD2A_CLRDATA_RETURN 
+KBD2A_CHKKRSETSF:
 		LDA KBDKRFL
-		CPI 01H						;Check if key release flag is set
-		JZ KBD2A_CLRFLDATA_RETURN	;If yes clear flags (and data?) and return
-		MVI A, 01H					;If not, set shift flag
+		CPI 01H                     ;Check if key release flag is set
+		JNZ KBD2A_SETSF             ;Not a release, go set the flag
+		XRA A                       ;Release: clear only shift flag
 		STA KBDSFFL
-		JMP KBD2A_CLRDATA_RETURN    ;Clear KBDDATA and return        
-KBD2A_CLRFLDATA_RETURN:
-		XRA A
+		STA KBDKRFL                 ;Clear release flag too
+		JMP KBD2A_CLRDATA_RETURN
+KBD2A_SETSF:
+		MVI A, 01H
 		STA KBDSFFL
-        STA KBDCTRLFL
-		STA KBDKRFL
+		JMP KBD2A_CLRDATA_RETURN
 KBD2A_CLRDATA_RETURN:
         XRA A
 		STA KBDDATA		
